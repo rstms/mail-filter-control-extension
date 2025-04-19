@@ -5,31 +5,37 @@ project != basename $$(pwd)
 docker = env DOCKER_BUILD_OUTPUT=plain BUILDKIT_PROGRESS=plain docker
 gitclean = if git status --porcelain | grep '^.*$$'; then echo git status is dirty; false; else echo git status is clean; true; fi
 
-src = $(wildcard src/*.js)
-html = $(wildcard html/*.html)
-schema = $(wildcard *schema.json)
+src = $(wildcard src/*.js) $(wildcard ./experiments/*/*.js)
+html = $(wildcard *.html)
+schema = $(wildcard ./experiments/*/*.json)
+json != find -type f -name \*.json
+json_fmt = $(foreach foo,$(json),$(dir $(foo)).$(notdir $(basename $(foo))))
 
 #html = options.html editor.html popup.hml
 
 package_files = manifest.json VERSION LICENSE README.md $(schema) $(src) $(html) assets
 version != cat VERSION
 
-all: $(html) $(src) fix .fmt lint .manifest .carddav .activity_manager .background_send assets
+all: $(html) $(src) $(json_fmt) fix .fmt lint assets
 	touch manifest.json
 
 .manifest: manifest.json
 	jq . <$< >$<.parsed && mv $<.parsed $<
 	touch $@
 
-.carddav: carddav_schema.json
+.updates: updates.json
 	jq . <$< >$<.parsed && mv $<.parsed $<
 	touch $@
 
-.activity_manager: activity_manager_schema.json
+experiments/carddav/.schema: experiments/carddav/schema.json
 	jq . <$< >$<.parsed && mv $<.parsed $<
 	touch $@
 
-.background_send: background_send_schema.json
+experiments/activity_manager/.schema: experiments/activity_manager/schema.json
+	jq . <$< >$<.parsed && mv $<.parsed $<
+	touch $@
+
+experiments/background_send/.schema: experiments/background_send/schema.json
 	jq . <$< >$<.parsed && mv $<.parsed $<
 	touch $@
 
@@ -42,7 +48,7 @@ assets: exported/assets
 	sed '/<script>/,/<\/script>/d' $< >$@
 
 fix: .eslint
-	fix -- docker run --rm -v "$$(pwd):/app" eslint fix src/*.js
+	fix -- docker run --rm -v "$$(pwd):/app" eslint fix src/*.js experiments/*/*.js
 
 lint-shell: .eslint 
 	docker run -it --rm -v "$$(pwd)/src:/app" eslint shell
@@ -62,7 +68,7 @@ closure: .closure
 fmt:	.fmt
 
 .fmt: .prettier $(src) $(html)
-	docker run --rm -v "$$(pwd):/app" prettier --tab-width 4 --print-width 135 --write "src/*.js" "*.html"
+	docker run --rm -v "$$(pwd):/app" prettier --tab-width 4 --print-width 135 --write "src/*.js" "*.html" "experiments/*/*.js"
 	touch $@
 
 .prettier: docker/prettier/Dockerfile

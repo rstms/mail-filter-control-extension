@@ -16,6 +16,7 @@ exported
 cruft
 .fmt
 .manifest
+.updates
 .vscode
 .carddav
 .activity_manager

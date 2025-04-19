@@ -86,7 +86,7 @@
   },
   "experiment_apis": {
     "cardDAV": {
-      "schema": "carddav_schema.json",
+      "schema": "./experiments/carddav/schema.json",
       "parent": {
         "scopes": [
           "addon_parent"
@@ -96,11 +96,11 @@
             "cardDAV"
           ]
         ],
-        "script": "./src/carddav.js"
+        "script": "./experiments/carddav/carddav.js"
       }
     },
     "activityManager": {
-      "schema": "activity_manager_schema.json",
+      "schema": "./experiments/activity_manager/schema.json",
       "parent": {
         "scopes": [
           "addon_parent"
@@ -110,11 +110,11 @@
             "activityManager"
           ]
         ],
-        "script": "./src/activity_manager.js"
+        "script": "./experiments/activity_manager/activity_manager.js"
       }
     },
     "backgroundSend": {
-      "schema": "background_send_schema.json",
+      "schema": "./experiments/background_send/schema.json",
       "parent": {
         "scopes": [
           "addon_parent"
@@ -124,7 +124,7 @@
             "backgroundSend"
           ]
         ],
-        "script": "./src/background_send.js"
+        "script": "./experiments/background_send/background_send.js"
       }
     }
   }
