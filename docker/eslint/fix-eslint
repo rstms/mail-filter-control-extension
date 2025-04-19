@@ -1,0 +1,26 @@
+#!/usr/bin/env python3
+
+from subprocess import check_output
+from pathlib import Path
+import json
+from shutil import copyfile
+
+src=check_output('find / -type d -name formatters | grep standard', text=True, shell=True).strip()
+dst=check_output('find / -type d -name formatters | grep -v standard', text=True, shell=True).strip()
+
+srcFile = Path(src) / "formatters-meta.json"
+dstFile = Path(dst) / "formatters-meta.json"
+
+srcConfig = json.loads(srcFile.read_text())
+
+for cfg in srcConfig:
+	if cfg['name'] == 'unix':
+		unixConfig = cfg
+
+
+dstConfig = json.loads(dstFile.read_text())
+dstConfig.append(unixConfig)
+
+dstFile.write_text(json.dumps(dstConfig, indent=2))
+
+copyfile(Path(src)/"unix.js", Path(dst)/"unix.js")

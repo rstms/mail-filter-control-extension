@@ -1,0 +1,923 @@
+<!doctype html>
+<html data-bs-theme="auto" lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no" />
+        <title>Mail Filter Control</title>
+        <link rel="stylesheet" href="assets/bootstrap/css/bootstrap.min.css?h=2a67f89353a72f7ee4500027c27d0b66" />
+        <link rel="stylesheet" href="assets/css/Source%20Sans%20Pro.css?h=7dbb054380ac61338a09edfa23ab288a" />
+        <script type="module" src="./src/editor.js"></script>
+    </head>
+
+    <body>
+        <div class="container-xl">
+            <div class="vstack gap-1">
+                <h4 class="bg-secondary-subtle my-2 py-1 px-1 ps-1 mt-0 mb-1 ms-0 me-0">Mail Filter Control Panel</h4>
+                <div></div>
+                <div id="editor-tabs">
+                    <ul class="nav nav-pills" role="tablist">
+                        <li class="nav-item" role="presentation" id="tab-classes-link">
+                            <a class="nav-link active" role="tab" data-bs-toggle="pill" id="classes-navlink" href="#tab-classes"
+                                >Classes</a
+                            >
+                        </li>
+                        <li class="nav-item" role="presentation" id="tab-books-link">
+                            <a class="nav-link" role="tab" data-bs-toggle="pill" id="books-navlink" href="#tab-books">Filter Books</a>
+                        </li>
+                        <li class="nav-item" role="presentation" id="tab-options-link">
+                            <a class="nav-link" role="tab" data-bs-toggle="pill" id="options-navlink" href="#tab-options">Options</a>
+                        </li>
+                        <li class="nav-item" role="presentation" id="tab-advanced-link">
+                            <a class="nav-link" role="tab" data-bs-toggle="pill" id="advanced-navlink" href="#tab-advanced"
+                                >Advanced</a
+                            >
+                        </li>
+                        <li class="nav-item" role="presentation" id="tab-help-link">
+                            <a class="nav-link" role="tab" data-bs-toggle="pill" id="help-navlink" href="#tab-help">Help</a>
+                        </li>
+                    </ul>
+                    <div class="tab-content">
+                        <div class="tab-pane active" role="tabpanel" id="tab-classes">
+                            <div class="vstack gap-2 d-flex">
+                                <div></div>
+                                <div></div>
+                                <div class="row gx-2 d-flex">
+                                    <div class="col-2 d-flex">
+                                        <div class="input-group input-group-sm d-flex">
+                                            <span class="d-flex d-md-flex flex-fill justify-content-end input-group-text"
+                                                >Account</span
+                                            >
+                                        </div>
+                                    </div>
+                                    <div class="col-10 d-flex">
+                                        <select class="d-flex flex-fill" id="classes-account-select">
+                                            <optgroup label="This is a group">
+                                                <option value="12" selected="">This is item 1</option>
+                                                <option value="13">This is item 2</option>
+                                                <option value="14">This is item 3</option>
+                                            </optgroup>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="row gx-2 d-flex">
+                                    <div class="col-2 text-end d-flex">
+                                        <div class="input-group input-group-sm d-flex">
+                                            <span
+                                                class="d-flex d-md-flex flex-fill justify-content-end input-group-text"
+                                                id="classes-status-label-span"
+                                                >Status</span
+                                            >
+                                        </div>
+                                    </div>
+                                    <div class="col-10 d-flex">
+                                        <span
+                                            class="bg-light-subtle border rounded-0 d-flex d-md-flex flex-grow-1 py-1 px-1"
+                                            id="classes-status-message-span"
+                                            >Requesting data...</span
+                                        >
+                                    </div>
+                                </div>
+                                <div></div>
+                                <div class="row d-flex" id="table-grid-row">
+                                    <div class="col-auto" id="table-grid-column">
+                                        <div class="border rounded-0" id="level-table-div">
+                                            <div class="table-responsive d-inline-flex" id="class-table">
+                                                <table class="table table-sm">
+                                                    <thead>
+                                                        <tr>
+                                                            <th class="fw-normal">Class</th>
+                                                            <th class="fw-normal">Threshold</th>
+                                                            <th></th>
+                                                            <th></th>
+                                                            <th></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="level-table-body">
+                                                        <tr>
+                                                            <td>
+                                                                <input type="text" id="cell-class-input" required="" minlength="1" />
+                                                            </td>
+                                                            <td>
+                                                                <input
+                                                                    type="text"
+                                                                    id="cell-score-input"
+                                                                    required=""
+                                                                    minlength="1"
+                                                                    inputmode="numeric"
+                                                                />
+                                                            </td>
+                                                            <td>
+                                                                <input
+                                                                    class="form-range"
+                                                                    type="range"
+                                                                    id="cell-score-slider"
+                                                                    min="-20.0"
+                                                                    max="+20.0"
+                                                                    step=".1"
+                                                                />
+                                                            </td>
+                                                            <td>
+                                                                <button
+                                                                    class="btn btn-primary btn-sm"
+                                                                    id="cell-delete-button"
+                                                                    type="button"
+                                                                >
+                                                                    Delete
+                                                                </button>
+                                                            </td>
+                                                            <td>
+                                                                <button
+                                                                    class="btn btn-primary btn-sm"
+                                                                    id="cell-add-button"
+                                                                    type="button"
+                                                                >
+                                                                    +
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>
+                                                                <input
+                                                                    type="text"
+                                                                    required=""
+                                                                    minlength="1"
+                                                                    pattern="[a-zA-Z0-9-_ ]*"
+                                                                />
+                                                            </td>
+                                                            <td>
+                                                                <input
+                                                                    type="text"
+                                                                    required=""
+                                                                    minlength="1"
+                                                                    inputmode="numeric"
+                                                                    pattern="[0-9\.-]*"
+                                                                />
+                                                            </td>
+                                                            <td>
+                                                                <input
+                                                                    class="form-range"
+                                                                    type="range"
+                                                                    min="-20.0"
+                                                                    max="+20.0"
+                                                                    step=".1"
+                                                                />
+                                                            </td>
+                                                            <td>
+                                                                <button class="btn btn-primary btn-sm" type="button">Delete</button>
+                                                            </td>
+                                                            <td><button class="btn btn-primary btn-sm" type="button">+</button></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>
+                                                                <input
+                                                                    type="text"
+                                                                    required=""
+                                                                    minlength="1"
+                                                                    pattern="[a-zA-Z0-9-_ ]*"
+                                                                />
+                                                            </td>
+                                                            <td>
+                                                                <input
+                                                                    type="text"
+                                                                    required=""
+                                                                    minlength="1"
+                                                                    inputmode="numeric"
+                                                                    pattern="[0-9\.-]*"
+                                                                />
+                                                            </td>
+                                                            <td>
+                                                                <input
+                                                                    class="form-range"
+                                                                    type="range"
+                                                                    min="-20.0"
+                                                                    max="+20.0"
+                                                                    step=".1"
+                                                                />
+                                                            </td>
+                                                            <td>
+                                                                <button class="btn btn-primary btn-sm" type="button">Delete</button>
+                                                            </td>
+                                                            <td><button class="btn btn-primary btn-sm" type="button">+</button></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td>
+                                                                <input
+                                                                    type="text"
+                                                                    required=""
+                                                                    minlength="1"
+                                                                    pattern="[a-zA-Z0-9-_ ]*"
+                                                                />
+                                                            </td>
+                                                            <td>
+                                                                <input
+                                                                    type="text"
+                                                                    required=""
+                                                                    minlength="1"
+                                                                    inputmode="numeric"
+                                                                    pattern="[0-9\.-]*"
+                                                                />
+                                                            </td>
+                                                            <td>
+                                                                <input
+                                                                    class="form-range"
+                                                                    type="range"
+                                                                    min="-20.0"
+                                                                    max="+20.0"
+                                                                    step=".1"
+                                                                />
+                                                            </td>
+                                                            <td>
+                                                                <button class="btn btn-primary btn-sm" type="button">Delete</button>
+                                                            </td>
+                                                            <td><button class="btn btn-primary btn-sm" type="button">+</button></td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div></div>
+                                <div class="row">
+                                    <div class="col">
+                                        <div class="vstack gap-2">
+                                            <div class="row d-flex">
+                                                <div class="col-2 d-flex">
+                                                    <button
+                                                        class="btn btn-primary btn-sm flex-grow-1"
+                                                        id="classes-save-button"
+                                                        type="button"
+                                                    >
+                                                        Save Changes
+                                                    </button>
+                                                </div>
+                                                <div class="col-auto d-flex">
+                                                    <label class="col-form-label" for="classes-save-button"
+                                                        >Upload Changes to Mail Filter Server</label
+                                                    >
+                                                </div>
+                                            </div>
+                                            <div class="row d-flex">
+                                                <div class="col-2 d-flex">
+                                                    <button
+                                                        class="btn btn-primary btn-sm flex-grow-1"
+                                                        id="classes-defaults-button"
+                                                        type="button"
+                                                    >
+                                                        Reset To Defaults
+                                                    </button>
+                                                </div>
+                                                <div class="col-auto d-flex">
+                                                    <label class="col-form-label" for="classes-defaults-button"
+                                                        >Reset classes to default values</label
+                                                    >
+                                                </div>
+                                            </div>
+                                            <div class="row d-flex">
+                                                <div class="col-2 d-flex">
+                                                    <button
+                                                        class="btn btn-primary btn-sm flex-grow-1"
+                                                        id="classes-refresh-button"
+                                                        type="button"
+                                                    >
+                                                        Revert Changes
+                                                    </button>
+                                                </div>
+                                                <div class="col-auto d-flex">
+                                                    <label class="col-form-label" for="classes-refresh-button"
+                                                        >Abandon unsaved changes to this account</label
+                                                    >
+                                                </div>
+                                            </div>
+                                            <div class="row d-flex">
+                                                <div class="col-2 d-flex">
+                                                    <button
+                                                        class="btn btn-primary btn-sm flex-grow-1"
+                                                        id="classes-refresh-all-button"
+                                                        type="button"
+                                                    >
+                                                        Revert All Changes
+                                                    </button>
+                                                </div>
+                                                <div class="col-auto d-flex">
+                                                    <label class="col-form-label" for="classes-refresh-all-button"
+                                                        >Abandon unsaved changes for all accounts</label
+                                                    >
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane" role="tabpanel" id="tab-books">
+                            <div class="vstack gap-2 d-flex">
+                                <div></div>
+                                <div></div>
+                                <div class="row gx-2 d-flex">
+                                    <div class="col-2 d-flex">
+                                        <div class="input-group input-group-sm d-flex">
+                                            <span class="lh-lg d-flex d-md-flex flex-fill justify-content-end input-group-text"
+                                                >Selected Account</span
+                                            >
+                                        </div>
+                                    </div>
+                                    <div class="col-10 d-flex">
+                                        <select class="d-flex flex-fill" id="books-account-select">
+                                            <optgroup label="This is a group">
+                                                <option value="12" selected="">This is item 1</option>
+                                                <option value="13">This is item 2</option>
+                                                <option value="14">This is item 3</option>
+                                            </optgroup>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="row gx-2 d-flex">
+                                    <div class="col-2 text-end d-flex">
+                                        <div class="input-group input-group-sm d-flex">
+                                            <span class="lh-lg d-flex d-md-flex flex-fill justify-content-end input-group-text"
+                                                >Status</span
+                                            >
+                                        </div>
+                                    </div>
+                                    <div class="col-10 d-flex">
+                                        <span class="bg-light-subtle border rounded-0 flex-fill py-1 px-1" id="books-status-span"
+                                            >Requesting data...</span
+                                        >
+                                    </div>
+                                </div>
+                                <div class="border rounded-0" style="padding: 10px; margin: 10px">
+                                    <div class="vstack gap-2">
+                                        <div class="row gx-2 d-flex">
+                                            <div class="col-2 d-flex">
+                                                <div class="input-group input-group-sm d-flex">
+                                                    <span class="lh-lg d-flex d-md-flex flex-fill justify-content-end input-group-text"
+                                                        >Address Book Connections</span
+                                                    >
+                                                </div>
+                                            </div>
+                                            <div class="col-auto d-flex flex-fill">
+                                                <div>
+                                                    <a
+                                                        class="btn btn-secondary btn-small"
+                                                        data-bs-toggle="collapse"
+                                                        aria-expanded="false"
+                                                        aria-controls="collapse-2"
+                                                        href="#collapse-2"
+                                                        role="button"
+                                                        id="books-connections-dropdown"
+                                                        >Show CardDAV Address Book Connections</a
+                                                    >
+                                                    <div class="collapse" id="collapse-2">
+                                                        <div class="vstack gap-1 border rounded-0" style="padding: 10px">
+                                                            <div class="table-responsive" id="books-connections-table">
+                                                                <table class="table table-bordered">
+                                                                    <thead>
+                                                                        <tr>
+                                                                            <td>
+                                                                                <label
+                                                                                    class="form-label"
+                                                                                    style="margin-left: 10px; margin-right: 10px"
+                                                                                    >Filter Book</label
+                                                                                >
+                                                                            </td>
+                                                                            <td>
+                                                                                <label
+                                                                                    class="form-label"
+                                                                                    style="margin-right: 10px; margin-left: 10px"
+                                                                                    >Connected</label
+                                                                                >
+                                                                            </td>
+                                                                            <td>
+                                                                                <label
+                                                                                    class="form-label"
+                                                                                    style="margin-left: 10px; margin-right: 10px"
+                                                                                    >Connection Name</label
+                                                                                >
+                                                                            </td>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody
+                                                                        class="table-group-divider"
+                                                                        id="books-connections-table-body"
+                                                                    >
+                                                                        <tr id="books-connections-table-row">
+                                                                            <td>
+                                                                                <label
+                                                                                    class="form-label d-flex flex-grow-1 justify-content-center align-content-center"
+                                                                                    style="margin-bottom: 0px; margin-top: 0px"
+                                                                                    data-cell-id="book-name"
+                                                                                    >bookname</label
+                                                                                >
+                                                                            </td>
+                                                                            <td
+                                                                                class="text-center d-lg-flex justify-content-center align-items-center align-items-lg-center"
+                                                                            >
+                                                                                <div
+                                                                                    class="form-check form-switch form-check-inline d-flex flex-grow-1 justify-content-center align-items-center align-self-center"
+                                                                                    style="
+                                                                                        margin-left: 0px;
+                                                                                        margin-top: 0px;
+                                                                                        margin-bottom: 0px;
+                                                                                        margin-right: 0px;
+                                                                                    "
+                                                                                >
+                                                                                    <input
+                                                                                        class="form-check-input"
+                                                                                        type="checkbox"
+                                                                                        data-cell-id="connected"
+                                                                                    /><label
+                                                                                        class="form-check-label"
+                                                                                        for="books-connections-row-check-9"
+                                                                                        hidden="true"
+                                                                                    ></label>
+                                                                                </div>
+                                                                            </td>
+                                                                            <td>
+                                                                                <label
+                                                                                    class="form-label d-flex flex-grow-1 justify-content-center align-content-center"
+                                                                                    style="
+                                                                                        margin-top: 0px;
+                                                                                        margin-bottom: 0px;
+                                                                                        margin-right: 10px;
+                                                                                        margin-left: 10px;
+                                                                                    "
+                                                                                    data-cell-id="connection-name"
+                                                                                    >user-domain-ext-bookname</label
+                                                                                >
+                                                                            </td>
+                                                                        </tr>
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                            <div class="btn-group btn-group-sm gap-2 d-flex" role="group">
+                                                                <button
+                                                                    class="btn btn-primary btn-sm"
+                                                                    id="books-connections-scan-button"
+                                                                    type="button"
+                                                                >
+                                                                    Rescan Connections</button
+                                                                ><button
+                                                                    class="btn btn-primary btn-sm"
+                                                                    id="books-connections-disconnect-button"
+                                                                    type="button"
+                                                                >
+                                                                    Disconnect All
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row gx-2 d-flex">
+                                            <div class="col-2 d-flex">
+                                                <div class="input-group input-group-sm d-flex">
+                                                    <span class="lh-lg d-flex d-md-flex flex-fill justify-content-end input-group-text"
+                                                        >'Add Sender' Target</span
+                                                    >
+                                                </div>
+                                            </div>
+                                            <div class="col-auto d-flex flex-fill">
+                                                <div class="row gx-2 d-flex flex-grow-1">
+                                                    <div class="col-9 d-flex">
+                                                        <span
+                                                            class="bg-light-subtle border rounded-0 flex-fill py-1 px-1"
+                                                            id="books-add-sender-span"
+                                                            >Add sender target book</span
+                                                        >
+                                                    </div>
+                                                    <div class="col-3 d-flex">
+                                                        <div class="dropdown d-flex flex-fill">
+                                                            <button
+                                                                class="btn btn-primary btn-sm dropdown-toggle flex-grow-1"
+                                                                aria-expanded="false"
+                                                                data-bs-toggle="dropdown"
+                                                                id="books-add-sender-button"
+                                                                type="button"
+                                                            >
+                                                                Change Target Book
+                                                            </button>
+                                                            <div class="dropdown-menu" id="books-add-sender-menu">
+                                                                <a class="dropdown-item" href="#">First Item</a
+                                                                ><a class="dropdown-item" href="#">Second Item</a
+                                                                ><a class="dropdown-item" href="#">Third Item</a>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row gx-2 d-flex">
+                                            <div class="col-2 d-flex">
+                                                <div class="input-group input-group-sm d-flex">
+                                                    <span class="lh-lg d-flex d-md-flex flex-fill justify-content-end input-group-text"
+                                                        >Filter Books</span
+                                                    >
+                                                </div>
+                                            </div>
+                                            <div class="col d-flex">
+                                                <div class="row gx-2 d-flex flex-grow-1">
+                                                    <div class="col-9 d-flex">
+                                                        <select class="d-flex flex-grow-1" id="books-book-select">
+                                                            <optgroup label="This is a group">
+                                                                <option value="12" selected="">This is item 1</option>
+                                                                <option value="13">This is item 2</option>
+                                                                <option value="14">This is item 3</option>
+                                                            </optgroup>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-3 d-flex">
+                                                        <div class="dropdown d-flex flex-fill">
+                                                            <button
+                                                                class="btn btn-primary btn-sm dropdown-toggle flex-grow-1"
+                                                                aria-expanded="false"
+                                                                data-bs-toggle="dropdown"
+                                                                id="books-addresses-button"
+                                                                type="button"
+                                                            >
+                                                                Show Addresses
+                                                            </button>
+                                                            <div class="dropdown-menu" id="books-addresses-menu">
+                                                                <a class="dropdown-item" href="#">First Item</a
+                                                                ><a class="dropdown-item" href="#">Second Item</a
+                                                                ><a class="dropdown-item" href="#">Third Item</a>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row gx-2 d-flex">
+                                            <div class="col-2 d-flex">
+                                                <div class="input-group input-group-sm d-flex">
+                                                    <span class="lh-lg d-flex d-md-flex flex-fill justify-content-end input-group-text"
+                                                        >Add New Book</span
+                                                    >
+                                                </div>
+                                            </div>
+                                            <div class="col-auto d-flex flex-fill">
+                                                <div class="row gx-2 d-flex flex-grow-1">
+                                                    <div class="col-9 d-flex">
+                                                        <input class="d-flex flex-fill" type="text" id="books-add-input" />
+                                                    </div>
+                                                    <div class="col-3 d-flex">
+                                                        <button
+                                                            class="btn btn-primary btn-sm flex-grow-1 flex-fill"
+                                                            id="books-add-button"
+                                                            type="button"
+                                                        >
+                                                            Add Book To Account
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="row gx-2 d-flex">
+                                            <div class="col-2 d-flex">
+                                                <div class="input-group input-group-sm d-flex">
+                                                    <span class="lh-lg d-flex d-md-flex flex-fill justify-content-end input-group-text"
+                                                        >Delete Book</span
+                                                    >
+                                                </div>
+                                            </div>
+                                            <div class="col-auto d-flex flex-fill">
+                                                <div class="row gx-2 d-flex flex-grow-1">
+                                                    <div class="col-9 d-flex">
+                                                        <input class="d-flex flex-grow-1" type="text" id="books-delete-input" />
+                                                    </div>
+                                                    <div class="col-3 d-flex">
+                                                        <button
+                                                            class="btn btn-danger btn-sm d-flex flex-grow-1 flex-fill justify-content-center align-self-stretch"
+                                                            id="books-delete-button"
+                                                            type="button"
+                                                        >
+                                                            Delete Book and Addresses
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane m-auto" role="tabpanel" id="tab-options">
+                            <div class="vstack gap-2">
+                                <div></div>
+                                <div></div>
+                                <div class="vstack gap-2 border rounded-0">
+                                    <div></div>
+                                    <div class="vstack gap-2">
+                                        <div class="vstack">
+                                            <div class="hstack gap-2">
+                                                <div></div>
+                                                <div class="form-check">
+                                                    <input
+                                                        class="form-check-input"
+                                                        type="checkbox"
+                                                        id="options-auto-delete-checkbox"
+                                                    /><label class="form-check-label" for="options-auto-delete-checkbox"
+                                                        >Automatically Delete Control Messages</label
+                                                    >
+                                                </div>
+                                            </div>
+                                            <div class="hstack gap-2">
+                                                <div></div>
+                                                <div class="form-check">
+                                                    <input
+                                                        class="form-check-input"
+                                                        type="checkbox"
+                                                        id="options-minimize-compose-checkbox"
+                                                    /><label class="form-check-label" for="options-minimize-compose-checkbox"
+                                                        >Minimize Compose Window When Sending Control Messages</label
+                                                    >
+                                                </div>
+                                            </div>
+                                            <div class="hstack gap-2">
+                                                <div></div>
+                                                <div class="form-check">
+                                                    <input
+                                                        class="form-check-input"
+                                                        type="checkbox"
+                                                        id="options-show-advanced-checkbox"
+                                                    /><label class="form-check-label" for="options-show-advanced-checkbox"
+                                                        >Enable Advanced Tab</label
+                                                    >
+                                                </div>
+                                            </div>
+                                            <div class="hstack gap-2">
+                                                <div></div>
+                                                <div class="form-check">
+                                                    <input
+                                                        class="form-check-input"
+                                                        type="checkbox"
+                                                        id="options-cache-responses-checkbox"
+                                                    /><label class="form-check-label" for="options-cache-responses-checkbox"
+                                                        >Cache Control Message Responses</label
+                                                    >
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div></div>
+                                        <div class="hstack gap-2">
+                                            <div></div>
+                                            <div class="hstack gap-4 border rounded-0 flex-fill" style="padding: 8px">
+                                                <div class="row flex-fill">
+                                                    <div class="col-auto">
+                                                        <div class="vstack gap-1">
+                                                            <div><label class="form-label">Enabled Mail Filter Domains</label></div>
+                                                            <div></div>
+                                                            <button
+                                                                class="btn btn-primary btn-sm"
+                                                                id="options-domains-cancel-changes"
+                                                                type="button"
+                                                            >
+                                                                Cancel Pending Changes
+                                                            </button>
+                                                            <div></div>
+                                                            <button
+                                                                class="btn btn-primary btn-sm"
+                                                                id="options-domains-apply-changes"
+                                                                type="button"
+                                                            >
+                                                                Reset to Apply Changes
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col">
+                                                        <div class="hstack gap-2 border rounded-0">
+                                                            <div></div>
+                                                            <div
+                                                                class="vstack"
+                                                                id="options-domains-stack"
+                                                                style="overflow: auto; max-height: 150px; min-height: 150px"
+                                                            >
+                                                                <div class="form-check" id="options-domains-row">
+                                                                    <input
+                                                                        class="form-check-input"
+                                                                        type="checkbox"
+                                                                        id="options-domains-checkbox"
+                                                                    /><label
+                                                                        class="form-check-label"
+                                                                        id="options-domains-label"
+                                                                        for="formCheck-1"
+                                                                        >Label</label
+                                                                    >
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div></div>
+                                        <div class="hstack gap-2">
+                                            <div></div>
+                                            <div class="hstack gap-1">
+                                                <div></div>
+                                                <div class="theme-switcher dropdown ps-0 ms-0" id="theme-switcher-control-2">
+                                                    <button
+                                                        class="btn btn-link dropdown-toggle ms-0 ps-0"
+                                                        aria-expanded="false"
+                                                        data-bs-toggle="dropdown"
+                                                        id="theme-switcher-button-2"
+                                                        type="button"
+                                                        style="color: var(--bs-body-color)"
+                                                    >
+                                                        <svg
+                                                            xmlns="http://www.w3.org/2000/svg"
+                                                            width="1em"
+                                                            height="1em"
+                                                            fill="currentColor"
+                                                            viewBox="0 0 16 16"
+                                                            class="bi bi-sun-fill mb-1"
+                                                        >
+                                                            <path
+                                                                d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0m0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13m8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5M3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8m10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0m-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707M4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708z"
+                                                            ></path>
+                                                        </svg>
+                                                    </button>
+                                                    <div class="dropdown-menu dropdown-menu-start">
+                                                        <a
+                                                            class="dropdown-item d-flex align-items-center"
+                                                            href="#"
+                                                            data-bs-theme-value="light"
+                                                            ><svg
+                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                width="1em"
+                                                                height="1em"
+                                                                fill="currentColor"
+                                                                viewBox="0 0 16 16"
+                                                                class="bi bi-sun-fill opacity-50 me-2"
+                                                            >
+                                                                <path
+                                                                    d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0m0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13m8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5M3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8m10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0m-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707M4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708z"
+                                                                ></path></svg
+                                                            >Light</a
+                                                        ><a
+                                                            class="dropdown-item d-flex align-items-center"
+                                                            href="#"
+                                                            data-bs-theme-value="dark"
+                                                            ><svg
+                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                width="1em"
+                                                                height="1em"
+                                                                fill="currentColor"
+                                                                viewBox="0 0 16 16"
+                                                                class="bi bi-moon-stars-fill opacity-50 me-2"
+                                                            >
+                                                                <path
+                                                                    d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278"
+                                                                ></path>
+                                                                <path
+                                                                    d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387a1.734 1.734 0 0 0-1.097 1.097l-.387 1.162a.217.217 0 0 1-.412 0l-.387-1.162A1.734 1.734 0 0 0 9.31 6.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387a1.734 1.734 0 0 0 1.097-1.097l.387-1.162zM13.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.156 1.156 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.156 1.156 0 0 0-.732-.732l-.774-.258a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732L13.863.1z"
+                                                                ></path></svg
+                                                            >Dark</a
+                                                        ><a
+                                                            class="dropdown-item d-flex align-items-center"
+                                                            href="#"
+                                                            data-bs-theme-value="auto"
+                                                            ><svg
+                                                                xmlns="http://www.w3.org/2000/svg"
+                                                                width="1em"
+                                                                height="1em"
+                                                                fill="currentColor"
+                                                                viewBox="0 0 16 16"
+                                                                class="bi bi-circle-half opacity-50 me-2"
+                                                            >
+                                                                <path
+                                                                    d="M8 15A7 7 0 1 0 8 1zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16"
+                                                                ></path></svg
+                                                            >Auto</a
+                                                        >
+                                                    </div>
+                                                </div>
+                                                <label class="form-label" for="theme-switcher-button-2">Select Theme</label>
+                                            </div>
+                                        </div>
+                                        <div class="hstack gap-2">
+                                            <div></div>
+                                            <div class="hstack gap-2">
+                                                <div></div>
+                                                <button class="btn btn-primary btn-sm" id="options-reset-button" type="button">
+                                                    Reset Options to Defaults
+                                                </button>
+                                                <div></div>
+                                                <button class="btn btn-primary btn-sm" id="options-clear-cache-button" type="button">
+                                                    Clear Control Message Response Cache
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div></div>
+                                    <div></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane" role="tabpanel" id="tab-advanced">
+                            <div class="vstack gap-2">
+                                <div></div>
+                                <div></div>
+                                <div class="row">
+                                    <div class="col">
+                                        <div class="input-group">
+                                            <span class="input-group-text">Selected Account</span
+                                            ><input
+                                                class="form-control"
+                                                type="text"
+                                                id="advanced-selected-account-input"
+                                                readonly=""
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row gx-1 row-cols-3 d-flex">
+                                    <div class="col-auto text-end d-flex">
+                                        <div class="input-group d-flex">
+                                            <span class="input-group-text" accesskey="c">Command</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-auto d-flex"><select class="d-flex" id="advanced-command-select"></select></div>
+                                    <div class="col d-flex flex-fill">
+                                        <input class="d-flex flex-fill" type="text" id="advanced-argument-input" />
+                                    </div>
+                                    <div class="col-auto d-flex">
+                                        <button class="btn btn-primary d-flex" id="advanced-send-button" type="button" accesskey="s">
+                                            Send
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="row gx-2 d-flex">
+                                    <div class="col-2 text-end d-flex">
+                                        <div class="input-group input-group-sm d-flex">
+                                            <span class="lh-lg d-flex d-md-flex flex-fill justify-content-end input-group-text"
+                                                >Status</span
+                                            >
+                                        </div>
+                                    </div>
+                                    <div class="col-10 d-flex justify-content-md-start align-items-md-center">
+                                        <span class="bg-light-subtle border rounded-0 flex-fill py-1 px-1" id="advanced-status-span"
+                                            >Requesting data...</span
+                                        >
+                                    </div>
+                                </div>
+                                <div class="row d-flex">
+                                    <div class="col-12 d-flex">
+                                        <textarea class="flex-fill" id="advanced-output" readonly=""></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane" role="tabpanel" id="tab-help">
+                            <div class="vstack gap-2">
+                                <div></div>
+                                <div></div>
+                                <div class="row">
+                                    <div class="col">
+                                        <div class="table-responsive" id="help-table">
+                                            <table class="table table-sm">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Keyboard Shortcut</th>
+                                                        <th>Command</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="help-table-body">
+                                                    <tr id="help-table-row">
+                                                        <td id="help-command-shortcut">Ctrl-Shift-F</td>
+                                                        <td id="help-command-description">
+                                                            Add Message Sender to selected Filter Book
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>Ctrl-Shift-1</td>
+                                                        <td>Add Sender to Filter Book 1</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col">
+                                        <div class="bg-light-subtle border rounded-0">
+                                            <p id="help-text" style="padding: 4px">Requesting data...</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div></div>
+                <div class="hstack gap-2 d-sm-flex justify-content-sm-end align-items-sm-end">
+                    <button class="btn btn-primary btn-sm" id="apply-button" type="button">Apply</button
+                    ><button class="btn btn-primary btn-sm" id="cancel-button" type="button">Cancel</button
+                    ><button class="btn btn-primary btn-sm" id="ok-button" type="button">&nbsp; Ok&nbsp;&nbsp;</button>
+                </div>
+            </div>
+        </div>
+        <script src="assets/bootstrap/js/bootstrap.min.js?h=374d178d651fa0eaf680a1fa7b40c788"></script>
+    </body>
+</html>

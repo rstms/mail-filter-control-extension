@@ -1,0 +1,219 @@
+[
+  {
+    "namespace": "activityManager",
+    "types": [
+      {
+        "id": "eventOptions",
+        "type": "object",
+        "properties": {
+          "startTime": {
+            "optional": true,
+            "$ref": "extensionTypes.Date"
+          },
+          "completionTime": {
+            "optional": true,
+            "$ref": "extensionTypes.Date"
+          },
+          "icon": {
+            "optional": true,
+            "type": "string"
+          },
+          "context": {
+            "optional": true,
+            "$ref": "processContext"
+          }
+        }
+      },
+      {
+        "id": "processOptions",
+        "type": "object",
+        "properties": {
+          "icon": {
+            "optional": true,
+            "type": "string"
+          },
+          "completed": {
+            "optional": true,
+            "type": "integer"
+          },
+          "state": {
+            "optional": true,
+            "type": "string"
+          },
+          "context": {
+            "optional": true,
+            "$ref": "processContext"
+          }
+        }
+      },
+      {
+        "id": "updateOptions",
+        "type": "object",
+        "properties": {
+          "icon": {
+            "optional": true,
+            "type": "string"
+          },
+          "completed": {
+            "optional": true,
+            "type": "integer"
+          },
+          "state": {
+            "optional": true,
+            "type": "string"
+          }
+        }
+      },
+      {
+        "id": "warningOptions",
+        "type": "object",
+        "properties": {
+          "context": {
+            "optional": true,
+            "$ref": "processContext"
+          }
+        }
+      },
+      {
+        "id": "processContext",
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      }
+    ],
+    "functions": [
+      {
+        "name": "addEvent",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "title",
+            "type": "string"
+          },
+          {
+            "name": "detail",
+            "type": "string"
+          },
+          {
+            "name": "options",
+            "optional": true,
+            "$ref": "eventOptions"
+          }
+        ]
+      },
+      {
+        "name": "addProcess",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "title",
+            "type": "string"
+          },
+          {
+            "name": "detail",
+            "type": "string"
+          },
+          {
+            "name": "total",
+            "type": "integer"
+          },
+          {
+            "name": "options",
+            "optional": true,
+            "$ref": "processOptions"
+          }
+        ]
+      },
+      {
+        "name": "updateProgress",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "id",
+            "type": "integer"
+          },
+          {
+            "name": "detail",
+            "type": "string"
+          },
+          {
+            "name": "completed",
+            "type": "integer"
+          },
+          {
+            "name": "options",
+            "optional": true,
+            "$ref": "updateOptions"
+          }
+        ]
+      },
+      {
+        "name": "setState",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "id",
+            "type": "integer"
+          },
+          {
+            "name": "state",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "name": "remove",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "id",
+            "type": "integer"
+          }
+        ]
+      },
+      {
+        "name": "iconNames",
+        "type": "function",
+        "async": true,
+        "parameters": []
+      },
+      {
+        "name": "stateNames",
+        "type": "function",
+        "async": true,
+        "parameters": []
+      },
+      {
+        "name": "addWarning",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "title",
+            "type": "string"
+          },
+          {
+            "name": "detail",
+            "type": "string"
+          },
+          {
+            "name": "options",
+            "optional": true,
+            "$ref": "warningOptions"
+          }
+        ]
+      }
+    ]
+  }
+]

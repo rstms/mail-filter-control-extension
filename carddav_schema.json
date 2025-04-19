@@ -1,0 +1,70 @@
+[
+  {
+    "namespace": "cardDAV",
+    "functions": [
+      {
+        "name": "connected",
+        "type": "function",
+        "async": true,
+        "parameters": []
+      },
+      {
+        "name": "list",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "username",
+            "type": "string"
+          },
+          {
+            "name": "password",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "name": "connect",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "username",
+            "type": "string"
+          },
+          {
+            "name": "password",
+            "type": "string"
+          },
+          {
+            "name": "token",
+            "description": "server book token",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "name": "disconnect",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "uri",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "name": "get",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "uri",
+            "type": "string"
+          }
+        ]
+      }
+    ]
+  }
+]

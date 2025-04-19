@@ -1,0 +1,13 @@
+#!/bin/sh
+
+if [ $# -eq 0 ]; then
+  cmd=
+else
+  cmd=$1
+fi
+umask 007
+case $cmd in 
+  shell) /bin/bash -i -l;;
+  config) echo "config command";;
+  *) exec java -jar /opt/closure.jar "$@" ;;
+esac

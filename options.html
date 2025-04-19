@@ -1,0 +1,69 @@
+<!doctype html>
+<html data-bs-theme="auto" lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no" />
+        <title>options</title>
+        <link rel="stylesheet" href="assets/bootstrap/css/bootstrap.min.css?h=2a67f89353a72f7ee4500027c27d0b66" />
+        <link rel="stylesheet" href="assets/css/Source%20Sans%20Pro.css?h=7dbb054380ac61338a09edfa23ab288a" />
+        <script type="module" src="./src/options.js"></script>
+    </head>
+
+    <body>
+        <div class="row" style="padding: 16px; margin: 0px">
+            <div class="col">
+                <div class="vstack">
+                    <div>
+                        <p>
+                            This extension will use your email accounts to exchange control messages with the address
+                            filterctl@[account domain]&nbsp; (where [account domain] represents the domain of your email accounts).
+                        </p>
+                    </div>
+                    <div>
+                        <p>&nbsp;Your authorization is required for these actions:</p>
+                    </div>
+                    <div>
+                        <ul>
+                            <li>Send email messages to filterctl@[account domain]</li>
+                            <li>Read response messages from filterctl@[account domain]</li>
+                            <li>Delete filterctl@[account domain] messages from your Inbox and Sent folders. (optional)</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <div class="hstack gap-4">
+                            <div></div>
+                            <div class="vstack">
+                                <div class="hstack gap-4">
+                                    <div
+                                        class="bg-primary-subtle border rounded-0"
+                                        style="
+                                            padding: initial;
+                                            padding-left: 8px;
+                                            padding-right: 8px;
+                                            padding-top: 4px;
+                                            padding-bottom: 4px;
+                                        "
+                                    >
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="opt-in-checkbox" /><label
+                                                class="form-check-label"
+                                                for="opt-in-checkbox"
+                                                >I Authorize these actions</label
+                                            >
+                                        </div>
+                                    </div>
+                                    <div></div>
+                                    <button class="btn btn-primary btn-sm" id="options-open-button" type="button">
+                                        Open Mail Filter Controls
+                                    </button>
+                                </div>
+                            </div>
+                            <div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <script src="assets/bootstrap/js/bootstrap.min.js?h=374d178d651fa0eaf680a1fa7b40c788"></script>
+    </body>
+</html>

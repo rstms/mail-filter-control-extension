@@ -1,0 +1,21 @@
+#!/bin/sh
+
+if [ $# -eq 0 ]; then
+  cmd=
+else
+  cmd=$1
+fi
+
+
+config_file="${ESLINT_CONFIG_FILE:-eslint.config.js}"
+
+if [ ! -e "${config_file}" ]; then
+  config_file=/eslint.config.js
+fi
+
+case $cmd in 
+  shell) shift && /bin/sh "$@" ;;
+  fix) shift && eslint -c ${config_file} "$@" --format unix | sed 's/\/app\///g';;
+  config) cat /eslint.config.js;;
+  *) eslint -c ${config_file}  "$@" ;;
+esac

@@ -1,0 +1,131 @@
+{
+  "manifest_version": 3,
+  "version": "0.0.1",
+  "author": "Matt Krueger <mkrueger@rstms.net>",
+  "homepage_url": "https://github.com/rstms/mail-filter-control-extension",
+  "name": "Mail Filter Control",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "mail-filter-control-69bc8149-6b01-4c11-b35f-6d43b7f9f0d3@rstms.net",
+      "strict_min_version": "128.0",
+      "update_url": "https://raw.githubusercontent.com/rstms/mail-filter-control-exetension/refs/heads/master/updates.json"
+    }
+  },
+  "options_ui": {
+    "page": "./options.html"
+  },
+  "background": {
+    "scripts": [
+      "./src/background.js"
+    ],
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Mail Filter",
+    "default_icon": "funnel.svg",
+    "type": "button",
+    "allowed_spaces": []
+  },
+  "message_display_action": {
+    "default_title": "Add Sender to Filter Book",
+    "default_icon": "funnel.svg"
+  },
+  "permissions": [
+    "accountsRead",
+    "compose",
+    "compose.send",
+    "menus",
+    "messagesDelete",
+    "messagesRead",
+    "storage",
+    "tabs"
+  ],
+  "commands": {
+    "mailfilter-add-sender-default": {
+      "suggested_key": {
+        "default": "Ctrl+B"
+      },
+      "description": "Add message sender to selected filter book"
+    },
+    "mailfilter-add-sender-1": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+1"
+      },
+      "description": "Add message sender to filter book 1"
+    },
+    "mailfilter-add-sender-2": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+2"
+      },
+      "description": "Add message sender to filter book 2"
+    },
+    "mailfilter-add-sender-3": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+3"
+      },
+      "description": "Add message sender to filter book 3"
+    },
+    "mailfilter-add-sender-4": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+4"
+      },
+      "description": "Add message sender to filter book 4"
+    },
+    "mailfilter-add-sender-5": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+5"
+      },
+      "description": "Add message sender to filter book 5"
+    },
+    "mailfilter-add-sender-6": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+6"
+      },
+      "description": "Add message sender to filter book 6"
+    }
+  },
+  "experiment_apis": {
+    "cardDAV": {
+      "schema": "carddav_schema.json",
+      "parent": {
+        "scopes": [
+          "addon_parent"
+        ],
+        "paths": [
+          [
+            "cardDAV"
+          ]
+        ],
+        "script": "./src/carddav.js"
+      }
+    },
+    "activityManager": {
+      "schema": "activity_manager_schema.json",
+      "parent": {
+        "scopes": [
+          "addon_parent"
+        ],
+        "paths": [
+          [
+            "activityManager"
+          ]
+        ],
+        "script": "./src/activity_manager.js"
+      }
+    },
+    "backgroundSend": {
+      "schema": "background_send_schema.json",
+      "parent": {
+        "scopes": [
+          "addon_parent"
+        ],
+        "paths": [
+          [
+            "backgroundSend"
+          ]
+        ],
+        "script": "./src/background_send.js"
+      }
+    }
+  }
+}
