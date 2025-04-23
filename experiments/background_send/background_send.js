@@ -24,8 +24,8 @@ var backgroundSend = class extends ExtensionCommon.ExtensionAPI {
                             enumerator.getNext();
                             ++count;
                         }
-                        console.log("outbox:", count, outbox);
                         if (count > 0) {
+                            console.log("flushing outbox:", count, outbox);
                             let cmd = "cmd_sendUnsentMsgs";
                             let window = Services.wm.getMostRecentWindow("mail:3pane");
                             let dispatcher = window.document.commandDispatcher;

@@ -14,9 +14,9 @@ const defaults = {
     ticker: true,
     tickerSeconds: 1,
     autoRemove: true,
-    autoRemoveSeconds: 5,
+    autoRemoveSeconds: 60,
     timeout: true,
-    timeoutSeconds: 10,
+    timeoutSeconds: 15,
 };
 
 function setActivityTicker(activity) {
@@ -47,7 +47,6 @@ function setActivityAutoremove(activity) {
     try {
         if (activity.autoRemove && activity.autoRemoveSeconds !== 0) {
             activity.autoremoveId = setTimeout(() => {
-                console.log("AUTOREMOVE");
                 activity.remove();
             }, activity.autoRemoveSeconds * TICKS_PER_SECOND);
         }
@@ -58,6 +57,7 @@ function setActivityAutoremove(activity) {
 
 class Activity {
     constructor() {
+        this.id = null;
         this.tickerId = null;
         this.timeoutId = null;
         this.arutoremoveId = null;
@@ -135,6 +135,7 @@ class Activity {
                 this.isPending = false;
             }
             await messenger.activityManager.remove(this.id);
+            this.id = null;
         } catch (e) {
             console.error(e);
         }
@@ -189,6 +190,19 @@ class Activity {
             console.assert(this.isPending);
             await this.remove();
             await this.addEvent(message, options);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async fail(message, options = {}) {
+        try {
+            if (verbose) {
+                console.log("fail:", message, options, this);
+            }
+            console.assert(this.isPending);
+            await this.remove();
+            this.id = messenger.activityManager.addWarning(this.title, "Failure: " + this.message, { context: this.context });
         } catch (e) {
             console.error(e);
         }

@@ -27,6 +27,7 @@ async function restoreOptions() {
         var checked = await config.local.getBool(config.key.optInApproved);
         document.querySelector(optInCheckboxId).checked = checked;
         await enableButton(checked);
+        await config.local.remove(config.key.reloadAutoOptions);
     } catch (e) {
         console.error(e);
     }

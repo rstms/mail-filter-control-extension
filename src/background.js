@@ -99,7 +99,9 @@ async function initialize(mode) {
             return;
         }
 
-        await getFilterDataController({ purgePending: true });
+        await getFilterDataController({ readState: true, purgePending: true });
+
+        await initMenus();
 
         initialized = true;
     } catch (e) {
@@ -112,6 +114,7 @@ async function getFilterDataController(flags = { force: false, readState: true, 
         if (filterDataController === null || flags.force) {
             filterDataController = new FilterDataController(email);
             if (flags.readState) {
+                console.warn("reloading filterctl state");
                 await filterDataController.readState();
             }
         }
@@ -495,7 +498,7 @@ let menuConfig = {
             title: "Mail Filter Control Panel",
             contexts: ["tools_menu"],
         },
-        onClicked: onMenuControlPanelClicked,
+        onClicked: "onMenuControlPanelClicked",
     },
 
     rmfSelectBook: {
@@ -503,7 +506,7 @@ let menuConfig = {
             title: "Set Filter Book Target",
             contexts: ["folder_pane", "message_list"],
         },
-        onCreated: onMenuCreatedAddBooks,
+        onCreated: "onMenuCreatedAddBooks",
         subId: "rmfBook",
     },
 
@@ -516,7 +519,7 @@ let menuConfig = {
             parentId: "rmfSelectBook",
             type: "radio",
         },
-        onClicked: onMenuClickedSelectBook,
+        onClicked: "onMenuClickedSelectBook",
         noInit: true,
     },
 
@@ -525,8 +528,8 @@ let menuConfig = {
             title: "Add Sender to '__book__'",
             contexts: ["message_list"],
         },
-        onClicked: onMenuAddSenderClicked,
-        onShown: onMenuShownUpdateAddSenderTitle,
+        onClicked: "onMenuAddSenderClicked",
+        onShown: "onMenuShownUpdateAddSenderTitle",
     },
 
     rmfRescanMessages: {
@@ -534,7 +537,7 @@ let menuConfig = {
             title: "Rescan Selected Messages",
             contexts: ["message_list"],
         },
-        onClicked: onMenuRescanMessagesClicked,
+        onClicked: "onMenuRescanMessagesClicked",
     },
 
     rmfRescanFolder: {
@@ -542,9 +545,39 @@ let menuConfig = {
             title: "Rescan All Messages",
             contexts: ["folder_pane"],
         },
-        onClicked: onMenuRescanFolderClicked,
+        onClicked: "onMenuRescanFolderClicked",
     },
 };
+
+function getMenuHandler(handlerName) {
+    try {
+        switch (handlerName) {
+            case "onMenuControlPanelClicked":
+                return onMenuControlPanelClicked;
+
+            case "onMenuCreatedAddBooks":
+                return onMenuCreatedAddBooks;
+
+            case "onMenuClickedSelectBook":
+                return onMenuClickedSelectBook;
+
+            case "onMenuAddSenderClicked":
+                return onMenuAddSenderClicked;
+
+            case "onMenuShownUpdateAddSenderTitle":
+                return onMenuShownUpdateAddSenderTitle;
+
+            case "onMenuRescanMessagesClicked":
+                return onMenuRescanMessagesClicked;
+
+            case "onMenuRescanFolderClicked":
+                return onMenuRescanFolderClicked;
+        }
+        throw new Error(`unknown menu handler: ${handlerName}`);
+    } catch (e) {
+        console.error(e);
+    }
+}
 
 // reset menu configuration from menu config data structure
 async function initMenus() {
@@ -559,6 +592,10 @@ async function initMenus() {
             }
         }
         await messenger.menus.refresh();
+
+        // save menu config in session storage
+        await config.session.set(config.key.menuConfig, menus);
+        console.log("saved menu config:", menus);
 
         // FIXME: maybe we don't need to update the messaage display action here
         // because it will be done on onDisplayedFolderChanged and/or onSelectedMessagesChanged
@@ -650,7 +687,8 @@ async function createMenu(mid, config) {
             });
         }
         if (Object.hasOwn(created, "onCreated")) {
-            await created.onCreated(created);
+            const handler = getMenuHandler(created.onCreated);
+            await handler(created);
         }
     } catch (e) {
         console.error(e);
@@ -747,7 +785,7 @@ async function onMenuEvent(menuEvent, mids, info, tab) {
         for (let mid of mids) {
             if (Object.hasOwn(menus, mid)) {
                 if (Object.hasOwn(menus[mid], menuEvent)) {
-                    let handler = menus[mid][menuEvent];
+                    let handler = getMenuHandler(menus[mid][menuEvent]);
                     let changed = await handler(menus[mid], detail);
                     refresh ||= changed;
                 }
@@ -853,17 +891,16 @@ async function onMenuCreatedAddBooks(created) {
         }
 
         const accounts = await getAccounts();
-        const filterctl = await getFilterDataController();
         for (const [accountId, account] of Object.entries(accounts)) {
             let accountEmail = accountEmailAddress(account);
-            const books = await filterctl.getCardDAVBooks(accountId);
-            for (const book of books) {
+
+            for (const bookName of await getBookNames(accountId)) {
                 let config = Object.assign({}, menuConfig.rmfBook);
                 config.properties = Object.assign({}, menuConfig.rmfBook.properties);
-                let id = `rmfBook-${accountEmail}-${book.name}`;
+                let id = `rmfBook-${accountEmail}-${bookName}`;
                 config.accountId = accountId;
-                config.book = book.name;
-                config.properties.title = book.name;
+                config.book = bookName;
+                config.properties.title = bookName;
                 config.properties.parentId = created.id;
                 await createMenu(id, config);
             }
@@ -987,14 +1024,15 @@ async function requestRescan(account, path, messageIds) {
             MessageIds: messageIds,
         };
 
-        let message = "Rescanning message ${messageIds[0]} in folder ${path}...";
+        let message = `Rescanning message ${messageIds[0]} in folder ${path}...`;
         if (messageIds.length > 1) {
             message = `Rescanning ${messageIds.length} Messages in folder '${path}'...`;
         }
-        let display = await displayProcess(message);
-        console.log(message, request);
+        let display = await displayProcess(message, { total: messageIds.length, timeoutSeconds: 300 });
+        const body = JSON.stringify(request, null, 2);
+        console.log({ message, request, body });
         email
-            .sendRequest(account.id, "rescan", request)
+            .sendRequest(account.id, "rescan", body)
             .then((response) => {
                 console.log("Rescan response:", response);
                 let outcome = response.success ? "complete" : "failed";
@@ -1018,23 +1056,32 @@ async function requestRescan(account, path, messageIds) {
 // read add sender target book name from config
 async function getAddSenderTarget(accountId) {
     try {
-        let bookName = undefined;
         if (await isAccount(accountId)) {
             let targets = await config.local.get(config.key.addSenderTarget);
             if (targets !== undefined) {
-                bookName = targets[accountId];
-            }
-            if (bookName === undefined) {
-                const filterctl = await getFilterDataController();
-                let books = await filterctl.getCardDAVBooks(accountId);
-                for (const book of books) {
-                    bookName = book.name;
-                    await setAddSenderTarget(accountId, bookName);
-                    break;
+                if (Object.hasOwn(targets, accountId)) {
+                    return targets[accountId];
                 }
             }
+            for (const bookName of await getBookNames(accountId)) {
+                await setAddSenderTarget(accountId, bookName);
+                return bookName;
+            }
         }
-        return bookName;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function getBookNames(accountId) {
+    try {
+        const filterctl = await getFilterDataController();
+        var books = [];
+        const bookData = await filterctl.getBooks(accountId);
+        for (const bookName of Object.keys(bookData.books.Books)) {
+            books.push(bookName);
+        }
+        return books.sort();
     } catch (e) {
         console.error(e);
     }
@@ -1174,8 +1221,7 @@ async function addSenderAction(tab, bookIndex = "default") {
             if (bookIndex === "default") {
                 book = await getAddSenderTarget(accountId);
             } else {
-                const filterctl = await getFilterDataController();
-                const books = await filterctl.getCardDAVBooks(accountId);
+                const books = await getBookNames(accountId);
                 const indexed = books[parseInt(bookIndex) - 1];
                 if (indexed !== undefined) {
                     book = indexed.name;
@@ -1518,7 +1564,15 @@ async function onLoad() {
         loaded = true;
         approved = await isApproved();
         console.warn("onLoad:", { approved });
-        await initMenus();
+
+        if (approved) {
+            let menuConfig = await config.session.get(config.key.menuConfig);
+            if (menuConfig !== undefined) {
+                // we're awakening from suspension, so restore the menu config
+                menus = menuConfig;
+            }
+        }
+
         if (await config.local.getBool(config.key.reloadAutoOptions)) {
             await config.local.remove(config.key.reloadAutoOptions);
             await messenger.runtime.openOptionsPage();

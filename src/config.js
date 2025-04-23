@@ -252,5 +252,6 @@ export const config = {
         usageResponse: "usageResponse",
         reloadAutoOptions: "reloadAutoOptions",
         counter: "counter",
+        menuConfig: "menuConfig",
     },
 };

@@ -792,49 +792,30 @@ export class FilterDataController {
         }
     }
 
-    async setStatePersistence(enabled) {
-        try {
-            await config.local.setBool(config.key.filterctlCacheEnabled, enabled);
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    async getStatePersistence() {
-        try {
-            return await config.local.getBool(config.key.filterctlCacheEnabled);
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    async getStorage() {
-        try {
-            const cacheEnabled = await this.getStatePersistence();
-            return cacheEnabled ? config.local : config.session;
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
     async readState() {
         try {
-            const storage = await this.getStorage();
-            let state = await this.validateState(await storage.get(config.key.filterctlState));
-            this.datasets.classes.dirty = await this.initDatasets(CLASSES, state.classes.dirty);
-            this.datasets.classes.server = await this.initDatasets(CLASSES, state.classes.server);
-            this.datasets.books.dirty = await this.initDatasets(BOOKS, state.books.dirty);
-            this.datasets.books.server = await this.initDatasets(BOOKS, state.books.server);
-            this.passwords = await this.initPasswordCache(state.passwords);
+            const enabled = config.local.getBool(config.key.filterctlCacheEnabled);
+            if (enabled) {
+                console.warn("reading filterctl state from local storage");
+                let state = await this.validateState(await config.local.get(config.key.filterctlState));
+                this.datasets.classes.dirty = await this.initDatasets(CLASSES, state.classes.dirty);
+                this.datasets.classes.server = await this.initDatasets(CLASSES, state.classes.server);
+                this.datasets.books.dirty = await this.initDatasets(BOOKS, state.books.dirty);
+                this.datasets.books.server = await this.initDatasets(BOOKS, state.books.server);
+                this.passwords = await this.initPasswordCache(state.passwords);
+            }
         } catch (e) {
             console.error(e);
         }
     }
 
-    async writeState() {
+    async writeState(flags = { force: false }) {
         try {
-            const storage = await this.getStorage();
-            await storage.set(config.key.filterctlState, await this.state());
+            const enabled = config.local.getBool(config.key.filterctlCacheEnabled);
+            if (enabled || flags.force) {
+                console.warn("writing filterctl state to local storage");
+                await config.local.set(config.key.filterctlState, await this.state());
+            }
         } catch (e) {
             console.error(e);
         }
@@ -843,7 +824,7 @@ export class FilterDataController {
     async resetState() {
         try {
             this.initialize();
-            await this.writeState();
+            await this.writeState({ force: true });
         } catch (e) {
             console.error(e);
         }
@@ -1218,6 +1199,9 @@ export class FilterDataController {
 
             let dataset = this.datasets[type].server[accountId];
             let message = dataset.typeName + " refreshed from server";
+
+            await this.writeState();
+
             return await this.datasetResult(type, accountId, dataset, SUCCESS, message);
         } catch (e) {
             console.error(e);
@@ -1614,13 +1598,16 @@ export class FilterDataController {
             if (verbose) {
                 console.debug("queryAccounts: response:", response);
             }
-            console.assert(response.Success);
-            console.assert(response.User === username);
-            this.passwords.set(accountId, response.Password);
-            await message.complete(`Received cardDAV credentials for ${username}`);
-            await this.writeState();
-            if (verbose) {
-                console.debug("queryAccount after:", this.passwords.map);
+            if (response.Success) {
+                console.assert(response.User === username);
+                this.passwords.set(accountId, response.Password);
+                await message.complete(`Received cardDAV credentials for ${username}`);
+                await this.writeState();
+                if (verbose) {
+                    console.debug("queryAccount after:", this.passwords.map);
+                }
+            } else {
+                await message.fail(`CardDAV credential query for ${username}: ${response.message}`);
             }
             return;
         } catch (e) {
@@ -1715,3 +1702,5 @@ export async function datasetFactory(type, renderable = undefined, accountId = u
 
 export const booksFactory = (renderable = undefined, accountId = undefined) => datasetFactory(BOOKS, renderable, accountId);
 export const classesFactory = (renderable = undefined, accountId = undefined) => datasetFactory(CLASSES, renderable, accountId);
+
+console.log("filterctl.js executing");
