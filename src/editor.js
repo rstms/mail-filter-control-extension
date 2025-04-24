@@ -977,6 +977,9 @@ addTabControl(tab.options, "advancedTabVisible", "options-show-advanced-checkbox
 addTabControl(tab.options, "minimizeCompose", "options-minimize-compose-checkbox", "change", () => {
     tab.options.onMinimizeComposeChange();
 });
+addTabControl(tab.options, "backgroundSend", "options-background-send-checkbox", "change", () => {
+    tab.options.onBackgroundSendChange();
+});
 addTabControl(tab.options, "cacheResponses", "options-cache-responses-checkbox", "change", () => {
     tab.options.onCacheResponsesChange();
 });

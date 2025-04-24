@@ -81,9 +81,7 @@ async function initialize(mode) {
         console.warn("initialize:", { mode, approved });
 
         const manifest = await messenger.runtime.getManifest();
-        await messenger.backgroundSend.set(false);
-        let backgroundSend = await messenger.backgroundSend.get();
-        console.log(`${manifest.name} v${manifest.version} (${mode}) Approved=${approved} backgroundSend=${backgroundSend}`);
+        console.log(`${manifest.name} v${manifest.version} (${mode}) Approved=${approved}`);
 
         if (verbose) {
             console.debug({

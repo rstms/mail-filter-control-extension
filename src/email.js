@@ -2,7 +2,7 @@ import { generateUUID, differ, verbosity } from "./common.js";
 import { domainPart } from "./common.js";
 import { AsyncMap } from "./asyncmap.js";
 import { config } from "./config.js";
-import { getAccount } from "./accounts.js";
+import { getAccount, getAccounts } from "./accounts.js";
 
 /* global console, messenger, setTimeout, clearTimeout, setInterval, clearInterval, window */
 
@@ -21,13 +21,15 @@ const RESPONSE_CHECK_INTERVAL = 1024;
 const moduleCID = "module-" + generateUUID();
 
 class EmailRequest {
-    constructor(controller, autoDelete) {
+    constructor(controller, autoDelete, minimizeCompose, backgroundSend) {
         if (verbose) {
             console.debug("autoDelete:", autoDelete);
         }
         this.controller = controller;
         this.id = generateUUID();
         this.autoDelete = autoDelete;
+        this.minimizeCompose = minimizeCompose;
+        this.backgroundSend = backgroundSend;
         this.account = null;
         this.command = null;
         this.response = null;
@@ -69,7 +71,7 @@ class EmailRequest {
                     }
                     this.controller.sendmail(this).then((sent) => {
                         if (verbose) {
-                            console.debug("sendmail returned:", sent);
+                            console.debug("controller.sendmail returned:", sent);
                         }
                     });
                 });
@@ -284,6 +286,9 @@ class EmailController {
                         response,
                     );
                 }
+
+                // delete requests from Sent
+                await this.deleteSentRequests();
             }
 
             // FIXME: check here for expired this.resolvedRequests and this.processedMessages on a long timeout
@@ -325,17 +330,81 @@ class EmailController {
         }
     }
 
+    async minimizeComposeWindow(composer) {
+        try {
+            await messenger.windows.update(composer.windowId, { state: "minimized" });
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async composeSendmail(request) {
+        try {
+            if (verbose) {
+                console.debug("composeSendmail:", request);
+            }
+            const identity = request.account.identities[0];
+            const domain = domainPart(identity.email);
+            const msg = {
+                identityId: identity.id,
+                to: ["filterctl@" + domain],
+                from: identity.name + " <" + identity.email + ">",
+                subject: request.command,
+                isPlainText: true,
+                plainTextBody: request.body,
+                customHeaders: [{ name: "X-Filterctl-Request-Id", value: request.id }],
+            };
+
+            const comp = await messenger.compose.beginNew();
+            if (verbose) {
+                console.debug("sendmail: comp:", comp);
+            }
+
+            if (request.minimizeCompose) {
+                await this.minimizeComposeWindow(comp);
+            }
+
+            const details = await messenger.compose.getComposeDetails(comp.id);
+            if (verbose) {
+                console.debug("getComposeDetails:", details);
+                console.debug("calling setComposeDetails:", comp.id, msg);
+            }
+            await messenger.compose.setComposeDetails(comp.id, msg);
+            if (verbose) {
+                console.debug("setComposeDetails returned");
+                console.debug("calling sendMessage:", comp.id);
+            }
+            const sent = await messenger.compose.sendMessage(comp.id);
+            if (verbose) {
+                console.debug("sendMessage returned:", sent);
+            }
+            if (await config.local.getBool(config.key.autoDelete)) {
+                for (const message of sent.messages) {
+                    await this.deleteMessage(message);
+                }
+            }
+
+            await this.checkPending();
+            return sent;
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
     async sendmail(request) {
         try {
+            console.assert(await this.pendingRequests.has(request.id), "sanity check failed: id should be pending");
+
+            if (!request.backgroundSend) {
+                return await this.composeSendmail(request);
+            }
             if (verbose) {
                 console.debug("sendmail:", request);
             }
-            console.assert(await this.pendingRequests.has(request.id), "sanity check: id should be pending");
+
             const identity = request.account.identities[0];
             const domain = domainPart(identity.email);
             const recipient = "filterctl@" + domain;
-
-            //let fromDate = new Date(Date.now());
 
             const message = {
                 accountId: request.account.id,
@@ -348,25 +417,40 @@ class EmailController {
             };
 
             if (verbose) {
-                console.debug("calling backgroundSend.sendMail:", message);
+                console.debug("calling sendMail:", message);
             }
             const sent = await messenger.backgroundSend.sendMail(message);
 
             if (verbose) {
-                console.debug("backgroundSend.sendMail returned:", sent);
+                console.debug("sendMail returned:", sent);
             }
 
-            if (await config.local.getBool(config.key.autoDelete)) {
-                let folders = await messenger.folders.query({ accountId: request.account.id, specialUse: ["sent"] });
+            await this.checkPending();
+            return sent;
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async deleteSentRequests() {
+        try {
+            if (!(await config.local.getBool(config.key.autoDelete))) {
+                return;
+            }
+            for (const account of await getAccounts()) {
+                const identity = account.identities[0];
+                const domain = domainPart(identity.email);
+                const recipient = "filterctl@" + domain;
+                let folders = await messenger.folders.query({ accountId: account.id, specialUse: ["sent"] });
                 for (const folder of folders) {
-                    console.log("found sent folder:", folder);
+                    console.log("Scanning folder:", folder);
                     while (true) {
                         let queryResult = await messenger.messages.query({
-                            accountId: request.account.id,
+                            accountId: account.id,
                             folderId: folder.id,
                             recipients: recipient,
                             fromMe: true,
-                            //headerMessageId: "<" + sent.messageId + ">",
+                            //headerMessageId: sent.messageId,
                         });
                         let deleteIds = [];
                         for (const message of queryResult.messages) {
@@ -374,10 +458,10 @@ class EmailController {
                                 (message.folder.path === "/Sent" || message.folder.path === "/Trash") &&
                                 message.recipients[0] === recipient
                             ) {
-                                console.log("deleting message:", message);
+                                console.log("Deleting Sent Request:", message);
                                 deleteIds.push(message.id);
                             } else {
-                                console.warn("not deleting message:", message);
+                                console.error("Delete query found unexpected message:", message);
                             }
                         }
                         if (deleteIds.length > 0) {
@@ -388,8 +472,6 @@ class EmailController {
                     }
                 }
             }
-            await this.checkPending();
-            return sent;
         } catch (e) {
             console.error(e);
         }
@@ -555,8 +637,10 @@ class EmailController {
                 console.log("email.sendRequest:", accountId, command, body, timeout);
             }
             const autoDelete = await config.local.getBool(config.key.autoDelete);
+            const minimizeCompose = await config.local.getBool(config.key.minimizeCompose);
+            const backgroundSend = await config.local.getBool(config.key.backgroundSend);
             const account = await getAccount(accountId);
-            let request = new EmailRequest(this, autoDelete);
+            let request = new EmailRequest(this, autoDelete, minimizeCompose, backgroundSend);
             var ret = await request.send(account, command, body, timeout);
             if (verbose) {
                 console.log("sendEmailRequest returning:", ret);
@@ -576,13 +660,6 @@ class EmailController {
     }
 }
 
-/*
-async function onComposeStateChange(tab, state) {
-    console.log("composeStateChanged:", tab, state);
-}
-messenger.compose.onComposeStateChanged.addListener(onComposeStateChange);
-*/
-
 export const email = new EmailController();
 
 async function receiver(folder, messageList) {
@@ -601,18 +678,3 @@ async function shutdown() {
 
 window.addEventListener("load", startup);
 window.addEventListener("beforeunload", shutdown);
-
-/*
-async function onNewMailReceived(folder, messageList) {
-    try {
-    } catch(e) {
-	console.error(e);
-    }
-}
-
-
-window.addEventListener("beforeunload", () => {
-    messenger.messages.onNewMailReceived.removeListener(onNewMailReceived);
-    email.shutdown();
-});
-*/

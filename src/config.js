@@ -17,6 +17,7 @@ const DEFAULTS = {
     filterctlCacheEnabled: true,
     autoClearConsole: false,
     minimizeCompose: true,
+    backgroundSend: true,
     preferredTheme: "auto",
     domain: {},
 };
@@ -237,6 +238,7 @@ export const config = {
         autoDelete: "autoDelete",
         advancedTabVisible: "advancedTabVisible",
         minimizeCompose: "minimizeCompose",
+        backgroundSend: "backgroundSend",
         filterctlCacheEnabled: "filterctlCacheEnabled",
         filterctlState: "filterctlState",
         emailResponseTimeout: "emailResponseTimeout",

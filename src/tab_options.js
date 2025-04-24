@@ -62,6 +62,7 @@ export class OptionsTab {
             this.controls.autoDelete.checked = await config.local.getBool(config.key.autoDelete);
             this.controls.advancedTabVisible.checked = await config.local.getBool(config.key.advancedTabVisible);
             this.controls.minimizeCompose.checked = await config.local.getBool(config.key.minimizeCompose);
+            this.controls.backgroundSend.checked = await config.local.getBool(config.key.backgroundSend);
             this.controls.cacheResponses.checked = await config.local.getBool(config.key.filterctlCacheEnabled);
 
             await this.populateDomains();
@@ -176,6 +177,14 @@ export class OptionsTab {
     async onMinimizeComposeChange() {
         try {
             await config.local.setBool(config.key.minimizeCompose, this.controls.minimizeCompose.checked);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async onBackgroundSendChange() {
+        try {
+            await config.local.setBool(config.key.backgroundSend, this.controls.backgroundSend.checked);
         } catch (e) {
             console.error(e);
         }
