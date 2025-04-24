@@ -45,22 +45,24 @@ var backgroundSend = class extends ExtensionCommon.ExtensionAPI {
                             if (typeof this.body !== "string" || this.body === "") {
                                 this.body = "{}";
                             }
+                            /*
                             console.log("MessageSender constructor: ", {
                                 accountId: this.accountid,
                                 identity: this.identity,
                                 fields: this.fields,
                                 body: this.body,
                             });
+			    */
                         }
 
                         onStartSending() {
-                            console.log("onStartSending");
+                            //console.log("onStartSending");
                         }
                         onProgress() {
-                            console.log("onProgress");
+                            //console.log("onProgress");
                         }
                         onStopSending(msgId, status) {
-                            console.log("onStopSending:", { msgId, status });
+                            //console.log("onStopSending:", { msgId, status });
                             this.messageId = msgId.replace(/^<|>$/g, "");
                             this.status = status;
                             this.stopped = true;
@@ -71,17 +73,18 @@ var backgroundSend = class extends ExtensionCommon.ExtensionAPI {
                             }
                         }
                         onGetDraftFolderURI(msgId, folderURI) {
-                            console.log("onGetDraftFolderURI:", { msgId, folderURI });
+                            //console.log("onGetDraftFolderURI:", { msgId, folderURI });
                             this.messageId = msgId.replace(/^<|>$/g, "");
                             this.folderURI = folderURI;
                             this.drafted = true;
                             this.checkResolve();
                         }
                         onSendNotPerformed() {
-                            console.log("onSendNotPerformed");
+                            //console.log("onSendNotPerformed");
+                            this.reject(new Error("SendNotPerformed"));
                         }
                         onTransportSecurityError() {
-                            console.log("onTransportSecurityError");
+                            //console.log("onTransportSecurityError");
                             this.reject(new Error("TransportSecurityError"));
                         }
 
@@ -96,7 +99,7 @@ var backgroundSend = class extends ExtensionCommon.ExtensionAPI {
                                 this.resolve = resolve;
                                 this.reject = reject;
                                 this.sender = new MessageSend();
-                                console.log("calling createAndSendMessage");
+                                //console.log("calling createAndSendMessage");
                                 this.sender
                                     .createAndSendMessage(
                                         null, // editor
@@ -116,8 +119,8 @@ var backgroundSend = class extends ExtensionCommon.ExtensionAPI {
                                         null, // originalMsgURI
                                         Ci.nsIMsgCompType.New, // compType
                                     )
-                                    .then((ret) => {
-                                        console.log("createAndSendMessage returned:", ret);
+                                    .then(() => {
+                                        //console.log("createAndSendMessage returned:", ret);
                                     });
                             });
                         }

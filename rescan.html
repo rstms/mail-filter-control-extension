@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Active Rescans</title>
+        <link rel="stylesheet" href="chrome://messenger/skin/shared/common.css" />
+        <style>
+            html,
+            body {
+                height: 100%;
+                margin: 0;
+                padding: 0;
+                display: flex;
+                flex-direction: column;
+            }
+            body {
+                background: var(--in-content-box-background);
+                color: var(--text-color-deemphasized);
+            }
+        </style>
+        <script type="module" src="./src/rescan.js"></script>
+    </head>
+    <body>
+        <button id="rescan-status-button">Check Status</button>
+    </body>
+</html>

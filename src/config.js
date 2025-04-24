@@ -10,6 +10,7 @@ const READBACK_TRIES = 5;
 
 const DEFAULTS = {
     editorTitle: "Mail Filter Control",
+    rescanTitle: "Active Rescans",
     optInApproved: false,
     advancedTabVisible: false,
     autoDelete: true,
@@ -246,6 +247,7 @@ export const config = {
         optInApproved: "optInApproved",
         autoOpen: "autoOpen",
         editorTitle: "editorTitle",
+        rescanTitle: "rescanTitle",
         addSenderTarget: "addSenderTarget",
         autoClearConsole: "autoClearConsole",
         domain: "domain",
@@ -255,5 +257,7 @@ export const config = {
         reloadAutoOptions: "reloadAutoOptions",
         counter: "counter",
         menuConfig: "menuConfig",
+        activeRescans: "activeRescans",
+        hasInitialized: "hasInitialized",
     },
 };

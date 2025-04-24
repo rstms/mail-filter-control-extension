@@ -272,6 +272,15 @@ class EmailController {
                     request.resolve(request, request.response);
                 }
 
+                // delate pending responses for requests that have already been resolved
+                const pendingResponseIds = await this.pendingResponses.keys();
+                for (const responseId of pendingResponseIds) {
+                    if (await this.resolvedRequests.has(responseId)) {
+                        console.warn("deleting pending response for resolved request:", responseId);
+                        await this.pendingResponses.pop(responseId);
+                    }
+                }
+
                 // check for expired responses
                 const expiredResponses = await this.pendingResponses.expire(RESPONSE_EXPIRE_SECONDS);
                 for (const [responseId, response] of expiredResponses.entries()) {
@@ -286,6 +295,8 @@ class EmailController {
                         response,
                     );
                 }
+
+                // check for already resolved responses
 
                 // delete requests from Sent
                 await this.deleteSentRequests();
@@ -437,13 +448,15 @@ class EmailController {
             if (!(await config.local.getBool(config.key.autoDelete))) {
                 return;
             }
-            for (const account of await getAccounts()) {
+            for (const account of Object.values(await getAccounts())) {
                 const identity = account.identities[0];
                 const domain = domainPart(identity.email);
                 const recipient = "filterctl@" + domain;
                 let folders = await messenger.folders.query({ accountId: account.id, specialUse: ["sent"] });
                 for (const folder of folders) {
-                    console.log("Scanning folder:", folder);
+                    if (verbose) {
+                        console.debug("Scanning folder:", folder);
+                    }
                     while (true) {
                         let queryResult = await messenger.messages.query({
                             accountId: account.id,
@@ -634,7 +647,7 @@ class EmailController {
     async sendRequest(accountId, command, body = undefined, timeout = undefined) {
         try {
             if (verbose) {
-                console.log("email.sendRequest:", accountId, command, body, timeout);
+                console.log("email.sendRequest:", { accountId, command, body, timeout });
             }
             const autoDelete = await config.local.getBool(config.key.autoDelete);
             const minimizeCompose = await config.local.getBool(config.key.minimizeCompose);

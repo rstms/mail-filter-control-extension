@@ -20,8 +20,8 @@ const verbose = verbosity.background;
 // state vars
 let loaded = false;
 let filterDataController = null;
-let initialized = false;
 let approved = false;
+let hasInitialized = false;
 
 let pendingConnections = new Map();
 const backgroundId = "background-page";
@@ -78,7 +78,7 @@ async function initialize(mode) {
             console.clear();
         }
 
-        console.warn("initialize:", { mode, approved });
+        console.warn("initialize:", { mode, loaded, approved, hasInitialized });
 
         const manifest = await messenger.runtime.getManifest();
         console.log(`${manifest.name} v${manifest.version} (${mode}) Approved=${approved}`);
@@ -91,6 +91,7 @@ async function initialize(mode) {
         }
 
         console.assert(loaded, "initialize called before onLoad");
+        console.assert(!hasInitialized, "redundant initialize call");
 
         if (!approved) {
             await messenger.runtime.openOptionsPage();
@@ -100,7 +101,8 @@ async function initialize(mode) {
         await getFilterDataController({ readState: true, purgePending: true });
         await initMenus();
 
-        initialized = true;
+        await config.session.setBool(config.key.hasInitialized, true);
+        hasInitialized = true;
     } catch (e) {
         console.error(e);
     }
@@ -126,8 +128,6 @@ async function getFilterDataController(flags = { force: false, readState: true, 
 
 async function onStartup() {
     try {
-        const approved = await isApproved();
-        console.warn("onStartup:", { approved });
         await initialize("startup");
     } catch (e) {
         console.error(e);
@@ -136,8 +136,6 @@ async function onStartup() {
 
 async function onInstalled() {
     try {
-        const approved = await isApproved();
-        console.warn("onInstalled:", { approved });
         await initialize("installed");
     } catch (e) {
         console.error(e);
@@ -183,12 +181,11 @@ async function onSuspendCanceled() {
     }
 }
 
-async function findEditorTab() {
+async function findContentTab(tabTitle) {
     try {
-        const editorTitle = await config.local.get(config.key.editorTitle);
-        const tabs = await messenger.tabs.query({ type: "content", title: editorTitle });
+        const tabs = await messenger.tabs.query({ type: "content", title: tabTitle });
         for (const tab of tabs) {
-            if (tab.title === editorTitle) {
+            if (tab.title === tabTitle) {
                 return tab;
             }
         }
@@ -204,7 +201,7 @@ async function reconnectEditor(flags = { activate: false }) {
             console.debug("reconnectEditor");
         }
 
-        var editorTab = await findEditorTab();
+        var editorTab = await findContentTab(await config.local.get(config.key.editorTitle));
         if (verbose) {
             console.debug("editor tab:", editorTab);
         }
@@ -246,7 +243,8 @@ async function focusEditorWindow() {
         }
 
         // divert to options page if not approved
-        if (!(await checkApproved())) {
+        if (!approved) {
+            await messenger.runtime.openOptionsPage();
             return;
         }
 
@@ -257,6 +255,62 @@ async function focusEditorWindow() {
         console.error(e);
     }
 }
+
+async function openRescanTab() {
+    try {
+        var rescanTab = await findContentTab(await config.local.get(config.key.rescanTitle));
+        if (!rescanTab) {
+            if (verbose) {
+                console.debug("opening new rescan tab");
+            }
+            await messenger.tabs.create({ url: "./rescan.html" });
+        } else {
+            if (verbose) {
+                console.debug("found existing rescan tab:", rescanTab);
+            }
+        }
+        /*
+        var port = await ports.get("rescan", ports.NO_WAIT);
+        if (verbose) {
+            console.debug("rescan port:", port);
+        }
+
+        if (rescanTab) {
+            if (port === undefined) {
+                // rescan is open but port is null; assume we're coming back from being suspended
+                if (verbose) {
+                    console.debug("sending activated notification to rescan");
+                }
+                let response = await messenger.runtime.sendMessage({ id: "backgroundActivated", src: backgroundId, dst: "rescan" });
+                if (verbose) {
+                    console.debug("activated notification response from rescan:", response);
+                }
+            }
+            return true;
+        if (verbose) {
+            console.debug("rescan tab not open");
+        }
+	*/
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+/*
+async function postRescanMessage(message) {
+    try {
+	await openRescanTab();
+        var port = await ports.get("rescan", ports.NO_WAIT);
+        if (port === undefined) {
+            throw new Error("postRescan failed: rescan not connected");
+        }
+        message.src = backgroundId;
+        await port.postMessage(message);
+    } catch (e) {
+        console.error(e);
+    }
+}
+*/
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -304,7 +358,8 @@ async function onCommand(command, tab) {
         if (verbose) {
             console.debug("onCommand:", command, tab);
         }
-        if (!(await checkApproved())) {
+        if (!approved) {
+            await messenger.runtime.openOptionsPage();
             return;
         }
         let prefix = "mailfilter-add-sender-";
@@ -355,7 +410,7 @@ async function onMessage(message, sender) {
                 return response;
 
             case "isInitialized":
-                return initialized;
+                return hasInitialized;
             //await initState.isCompleted();
         }
 
@@ -443,7 +498,7 @@ async function onMessage(message, sender) {
                 response = await getAddSenderTarget(message.accountId);
                 break;
             case "findEditorTab":
-                response = await findEditorTab();
+                response = await findContentTab(await config.local.get(config.key.editorTitle));
                 break;
             case "initMenus":
                 response = await initMenus();
@@ -694,33 +749,6 @@ async function createMenu(mid, config) {
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-//  menu handler helpers
-//
-///////////////////////////////////////////////////////////////////////////////
-
-async function isApproved() {
-    try {
-        return await config.local.getBool(config.key.optInApproved);
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-// if opt-in not approved, divert to extension options panel and return false
-async function checkApproved() {
-    try {
-        let approved = await isApproved();
-        if (!approved) {
-            await messenger.runtime.openOptionsPage();
-        }
-        return approved;
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-//
 //  menu event handlers
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -749,9 +777,9 @@ async function onMenuClicked(info, tab) {
 
 async function onMenuShown(info, tab) {
     try {
-        let initialized = await messenger.storage.session.get(["initialized"]);
+        console.assert(hasInitialized, "menu shown before initialize");
         if (verbose) {
-            console.debug("onMenuShown:", { info, tab, approved, loaded, initialized });
+            console.debug("onMenuShown:", { info, tab, approved, loaded, hasInitialized });
         }
         if (!approved) {
             return;
@@ -1025,20 +1053,18 @@ async function requestRescan(account, path, messageIds) {
         if (messageIds.length > 1) {
             message = `Rescanning ${messageIds.length} Messages in folder '${path}'...`;
         }
-        let display = await displayProcess(message, { total: messageIds.length, timeoutSeconds: 300 });
-        const body = JSON.stringify(request, null, 2);
-        console.log({ message, request, body });
-        email
-            .sendRequest(account.id, "rescan", body)
-            .then((response) => {
-                console.log("Rescan response:", response);
-                let outcome = response.success ? "complete" : "failed";
-                display.complete(`Rescan ${outcome}: ${response.message}`);
-            })
-            .catch((e) => {
-                console.error("Rescan failed:", e);
-                display.complete(`Rescan failed: ${e}`);
-            });
+        //let display = await displayProcess(message, { total: messageIds.length, timeoutSeconds: 300 });
+        //const body = JSON.stringify(request, null, 2);
+        console.log("Rescan request:", { message, request });
+        let response = await email.sendRequest(account.id, "rescan", request);
+        console.log("Rescan response:", response);
+        let activeRescans = await config.session.get(config.key.activeRescans);
+        if (typeof activeRescans !== "object") {
+            activeRescans = {};
+        }
+        activeRescans[response.Status.Id] = { accountId: account.id, request, response };
+        await config.session.set(config.key.activeRescans, activeRescans);
+        await openRescanTab();
     } catch (e) {
         console.error(e);
     }
@@ -1559,8 +1585,10 @@ async function onSelectedMessagesChanged(tab, selectedMessages) {
 async function onLoad() {
     try {
         loaded = true;
-        approved = await isApproved();
-        console.warn("onLoad:", { approved });
+        approved = await config.local.getBool(config.key.optInApproved);
+        hasInitialized = await config.session.getBool(config.key.hasInitialized);
+
+        console.warn("onLoad:", { approved, hasInitialized });
 
         if (approved) {
             let menuConfig = await config.session.get(config.key.menuConfig);
@@ -1569,6 +1597,7 @@ async function onLoad() {
                 menus = menuConfig;
             } else {
                 // menus haven't been intialized, so do it
+                // FIXME: is this unfininshed? should we call menuInit
             }
         }
 
