@@ -10,9 +10,6 @@ import { getAccount } from "./accounts.js";
 // FIXME: track the progress window
 // FIXME: track the error message popup dialog when send fails
 
-const enableBackgroundSend = true;
-const enableBackgroundSendFlush = false;
-
 const verbose = verbosity.email;
 const logQueue = false;
 
@@ -24,15 +21,13 @@ const RESPONSE_CHECK_INTERVAL = 1024;
 const moduleCID = "module-" + generateUUID();
 
 class EmailRequest {
-    constructor(controller, autoDelete, minimizeCompose) {
+    constructor(controller, autoDelete) {
         if (verbose) {
             console.debug("autoDelete:", autoDelete);
-            console.debug("minimizeCompose:", minimizeCompose);
         }
         this.controller = controller;
         this.id = generateUUID();
         this.autoDelete = autoDelete;
-        this.minimizeCompose = minimizeCompose;
         this.account = null;
         this.command = null;
         this.response = null;
@@ -69,7 +64,7 @@ class EmailRequest {
                 }
 
                 this.controller.pendingRequests.set(this.id, this).then(() => {
-                    if (logQueue) {
+                    if (verbose && logQueue) {
                         console.log("send: pushed to pendingRequests:", this.id, this);
                     }
                     this.controller.sendmail(this).then((sent) => {
@@ -97,14 +92,14 @@ class EmailRequest {
 
             this.controller.pendingRequests.pop(this.id).then((request) => {
                 if (request) {
-                    if (logQueue) {
+                    if (verbose && logQueue) {
                         console.log("remove: popped from pendingRequests:", this.id, request);
                     }
                     console.assert(this.id === request.id, "remove: sanity check failed: request id mismatch", this, request);
                 }
                 this.controller.pendingResponses.pop(this.id).then((response) => {
                     if (response) {
-                        if (logQueue) {
+                        if (verbose && logQueue) {
                             console.log("remove: popped from pendingResponses:", this.id, response);
                         }
                         console.assert(
@@ -139,7 +134,7 @@ class EmailRequest {
             if (this.response) {
                 // push this id to resolvedRequests for duplicate response detection
                 this.controller.resolvedRequests.set(this.id, true).then(() => {
-                    if (logQueue) {
+                    if (verbose && logQueue) {
                         console.log("resolve: pushed to resolvedRequests:", this.id, true);
                     }
                     this.remove();
@@ -254,17 +249,9 @@ class EmailController {
             const requestCount = await this.pendingRequests.size();
             const responseCount = await this.pendingResponses.size();
 
-            if (verbose || logQueue) {
+            if (verbose && logQueue) {
                 if (requestCount > 0 || responseCount > 0) {
                     await this.logQueueState("checkPending:");
-                }
-            }
-
-            if (enableBackgroundSendFlush) {
-                if (requestCount > 0 || responseCount > 0) {
-                    if (await config.local.getBool(config.key.minimizeCompose)) {
-                        await messenger.backgroundSend.flush();
-                    }
                 }
             }
 
@@ -287,7 +274,7 @@ class EmailController {
                 const expiredResponses = await this.pendingResponses.expire(RESPONSE_EXPIRE_SECONDS);
                 for (const [responseId, response] of expiredResponses.entries()) {
                     console.error("checkPending: response expired:", responseId, response);
-                    if (logQueue) {
+                    if (verbose && logQueue) {
                         console.log("checkPending: expired from this.pendingResponses:", responseId, response);
                     }
                     console.assert(
@@ -315,7 +302,7 @@ class EmailController {
             console.assert(requestId === request.id, "sanity check failed", requestId, request);
             const response = await this.pendingResponses.pop(requestId);
             if (response) {
-                if (logQueue) {
+                if (verbose && logQueue) {
                     console.log("checkPendingRequest: popped from this.pendingResponses:", requestId, response);
                 }
                 console.assert(
@@ -338,14 +325,6 @@ class EmailController {
         }
     }
 
-    async minimizeComposeWindow(composer) {
-        try {
-            await messenger.windows.update(composer.windowId, { state: "minimized" });
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
     async sendmail(request) {
         try {
             if (verbose) {
@@ -354,47 +333,59 @@ class EmailController {
             console.assert(await this.pendingRequests.has(request.id), "sanity check: id should be pending");
             const identity = request.account.identities[0];
             const domain = domainPart(identity.email);
+            const recipient = "filterctl@" + domain;
 
-            const comp = await messenger.compose.beginNew();
-            if (verbose) {
-                console.debug("sendmail: comp:", comp);
-            }
+            //let fromDate = new Date(Date.now());
 
-            if (request.minimizeCompose) {
-                await this.minimizeComposeWindow(comp);
-            }
-
-            const details = await messenger.compose.getComposeDetails(comp.id);
-            if (verbose) {
-                console.debug("getComposeDetails:", details);
-            }
-
-            const msgDetails = {
+            const message = {
+                accountId: request.account.id,
                 identityId: identity.id,
-                to: [`filterctl@${domain}`],
+                to: recipient,
                 from: `${identity.name} <${identity.email}>`,
                 subject: `${request.command}`,
                 body: `${request.body}`,
-                customHeaders: [{ name: "X-Filterctl-Request-Id", value: `${request.id}` }],
+                headers: [{ key: "X-Filterctl-Request-Id", value: `${request.id}` }],
             };
-            if (verbose) {
-                console.debug("calling setComposeDetails:", comp.id, msgDetails);
-            }
-            await messenger.compose.setComposeDetails(comp.id, msgDetails);
-
-            const readback = await messenger.compose.getComposeDetails(comp.id);
-            console.log("readback:", readback);
 
             if (verbose) {
-                console.debug("calling sendMessage:", comp.id);
+                console.debug("calling backgroundSend.sendMail:", message);
             }
-            const sent = await messenger.compose.sendMessage(comp.id);
+            const sent = await messenger.backgroundSend.sendMail(message);
+
             if (verbose) {
-                console.debug("sendMessage returned:", sent);
+                console.debug("backgroundSend.sendMail returned:", sent);
             }
+
             if (await config.local.getBool(config.key.autoDelete)) {
-                for (const message of sent.messages) {
-                    await this.deleteMessage(message);
+                let folders = await messenger.folders.query({ accountId: request.account.id, specialUse: ["sent"] });
+                for (const folder of folders) {
+                    console.log("found sent folder:", folder);
+                    while (true) {
+                        let queryResult = await messenger.messages.query({
+                            accountId: request.account.id,
+                            folderId: folder.id,
+                            recipients: recipient,
+                            fromMe: true,
+                            //headerMessageId: "<" + sent.messageId + ">",
+                        });
+                        let deleteIds = [];
+                        for (const message of queryResult.messages) {
+                            if (
+                                (message.folder.path === "/Sent" || message.folder.path === "/Trash") &&
+                                message.recipients[0] === recipient
+                            ) {
+                                console.log("deleting message:", message);
+                                deleteIds.push(message.id);
+                            } else {
+                                console.warn("not deleting message:", message);
+                            }
+                        }
+                        if (deleteIds.length > 0) {
+                            await messenger.messages.delete(deleteIds, true);
+                        } else {
+                            break;
+                        }
+                    }
                 }
             }
             await this.checkPending();
@@ -436,7 +427,7 @@ class EmailController {
             if (verbose) {
                 console.debug("deleteMessage:", message.folder.id, message);
             }
-            await messenger.messages.delete([message.id]);
+            await messenger.messages.delete([message.id], true);
         } catch (e) {
             console.error(e);
         }
@@ -469,7 +460,7 @@ class EmailController {
                                 message: message,
                             });
                         }
-                        if (logQueue) {
+                        if (verbose && logQueue) {
                             await this.logQueueState("receive: Message-ID in this.processedMessages:");
                         }
                     } else {
@@ -509,7 +500,7 @@ class EmailController {
 
                         // save this messageId for duplicate detection
                         await this.processedMessages.set(message.headerMessageId, requestId);
-                        if (logQueue) {
+                        if (verbose && logQueue) {
                             console.log("receive: pushed to processedMessages:", message.headerMessageId, requestId);
                         }
 
@@ -523,7 +514,7 @@ class EmailController {
                                     response: response,
                                 });
                             }
-                            if (logQueue) {
+                            if (verbose && logQueue) {
                                 await this.logQueueState("receive: requestId in this.resolvedRequests:");
                             }
                         } else {
@@ -537,7 +528,7 @@ class EmailController {
                                 request.resolve(request, response);
                             } else {
                                 await this.pendingResponses.set(requestId, response);
-                                if (logQueue) {
+                                if (verbose && logQueue) {
                                     console.log("receive: pushed to pendingResponses:", requestId, response);
                                 }
                             }
@@ -559,21 +550,13 @@ class EmailController {
     }
 
     async sendRequest(accountId, command, body = undefined, timeout = undefined) {
-        let backgroundSendState = null;
-        if (enableBackgroundSend) {
-            backgroundSendState = await messenger.backgroundSend.get();
-        }
         try {
             if (verbose) {
                 console.log("email.sendRequest:", accountId, command, body, timeout);
             }
             const autoDelete = await config.local.getBool(config.key.autoDelete);
-            const minimizeCompose = await config.local.getBool(config.key.minimizeCompose);
-            if (minimizeCompose && enableBackgroundSend) {
-                await messenger.backgroundSend.set(true);
-            }
             const account = await getAccount(accountId);
-            let request = new EmailRequest(this, autoDelete, minimizeCompose);
+            let request = new EmailRequest(this, autoDelete);
             var ret = await request.send(account, command, body, timeout);
             if (verbose) {
                 console.log("sendEmailRequest returning:", ret);
@@ -581,10 +564,6 @@ class EmailController {
             return ret;
         } catch (e) {
             console.error(e);
-        } finally {
-            if (backgroundSendState !== null) {
-                await messenger.backgroundSend.set(backgroundSendState);
-            }
         }
     }
 

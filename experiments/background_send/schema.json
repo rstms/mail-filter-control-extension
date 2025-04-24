@@ -1,6 +1,56 @@
 [
   {
     "namespace": "backgroundSend",
+    "types": [
+      {
+        "id": "Header",
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      {
+        "id": "Message",
+        "type": "object",
+        "properties": {
+          "accountId": {
+            "type": "string"
+          },
+          "identityId": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "headers": {
+            "optional": true,
+            "type": "array",
+            "items": {
+              "$ref": "Header"
+            }
+          },
+          "body": {
+            "optional": true,
+            "type": "string"
+          },
+          "messageId": {
+            "optional": true,
+            "type": "string"
+          }
+        }
+      }
+    ],
     "functions": [
       {
         "name": "set",
@@ -27,6 +77,18 @@
         "type": "function",
         "async": true,
         "parameters": []
+      },
+      {
+        "name": "sendMail",
+        "description": "create and send an email in the background",
+        "type": "function",
+        "async": true,
+        "parameters": [
+          {
+            "name": "message",
+            "$ref": "Message"
+          }
+        ]
       }
     ]
   }
