@@ -13,7 +13,7 @@ json_fmt = $(foreach foo,$(json),$(dir $(foo)).$(notdir $(basename $(foo))))
 
 #html = options.html editor.html popup.hml
 
-package_files = manifest.json VERSION LICENSE README.md $(schema) $(src) $(html) assets
+package_files = manifest.json VERSION LICENSE README.md $(schema) $(src) $(html) assets funnel.svg
 version != cat VERSION
 
 all: $(html) $(src) $(json_fmt) fix .fmt lint assets

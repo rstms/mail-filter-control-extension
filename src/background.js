@@ -98,7 +98,6 @@ async function initialize(mode) {
         }
 
         await getFilterDataController({ readState: true, purgePending: true });
-
         await initMenus();
 
         initialized = true;
@@ -1568,6 +1567,8 @@ async function onLoad() {
             if (menuConfig !== undefined) {
                 // we're awakening from suspension, so restore the menu config
                 menus = menuConfig;
+            } else {
+                // menus haven't been intialized, so do it
             }
         }
 

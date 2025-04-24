@@ -53,32 +53,6 @@
     ],
     "functions": [
       {
-        "name": "set",
-        "description": "set preferences to enable or disable background send",
-        "type": "function",
-        "async": true,
-        "parameters": [
-          {
-            "name": "enable",
-            "type": "boolean"
-          }
-        ]
-      },
-      {
-        "name": "get",
-        "description": "return preferences background send enabed state",
-        "type": "function",
-        "async": true,
-        "parameters": []
-      },
-      {
-        "name": "flush",
-        "description": "send any messages in the Local Outbox",
-        "type": "function",
-        "async": true,
-        "parameters": []
-      },
-      {
         "name": "sendMail",
         "description": "create and send an email in the background",
         "type": "function",
