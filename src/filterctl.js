@@ -1592,7 +1592,7 @@ export class FilterDataController {
             let account = await getAccount(accountId);
             console.assert(account.id === accountId);
             let username = accountEmailAddress(account);
-            let message = await displayProcess(`Requesting cardDAV credentials for ${username}`);
+            let display = await displayProcess(`Requesting cardDAV credentials for ${username}`, 0, 10, { ticker: 1 });
 
             let response = await this.email.sendRequest(accountId, "passwd");
             if (verbose) {
@@ -1601,13 +1601,13 @@ export class FilterDataController {
             if (response.Success) {
                 console.assert(response.User === username);
                 this.passwords.set(accountId, response.Password);
-                await message.complete(`Received cardDAV credentials for ${username}`);
+                await display.complete(`Received cardDAV credentials for ${username}`);
                 await this.writeState();
                 if (verbose) {
                     console.debug("queryAccount after:", this.passwords.map);
                 }
             } else {
-                await message.fail(`CardDAV credential query for ${username}: ${response.message}`);
+                await display.fail(`CardDAV credential query for ${username}: ${response.message}`);
             }
             return;
         } catch (e) {

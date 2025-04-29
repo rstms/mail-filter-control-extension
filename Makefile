@@ -6,12 +6,11 @@ docker = env DOCKER_BUILD_OUTPUT=plain BUILDKIT_PROGRESS=plain docker
 gitclean = if git status --porcelain | grep '^.*$$'; then echo git status is dirty; false; else echo git status is clean; true; fi
 
 src = $(wildcard src/*.js) $(wildcard ./experiments/*/*.js)
-html = $(wildcard *.html)
 schema = $(wildcard ./experiments/*/*.json)
 json != find -type f -name \*.json
 json_fmt = $(foreach foo,$(json),$(dir $(foo)).$(notdir $(basename $(foo))))
 
-#html = options.html editor.html popup.hml
+html = options.html editor.html rescan.html
 
 package_files = manifest.json VERSION LICENSE README.md $(schema) $(src) $(html) assets funnel.svg
 version != cat VERSION

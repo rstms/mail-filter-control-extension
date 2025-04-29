@@ -14,7 +14,6 @@ const DEFAULTS = {
     optInApproved: false,
     advancedTabVisible: false,
     autoDelete: true,
-    autoOpen: false,
     filterctlCacheEnabled: true,
     autoClearConsole: false,
     minimizeCompose: true,
@@ -245,19 +244,42 @@ export const config = {
         emailResponseTimeout: "emailResponseTimeout",
         preferredTheme: "preferredTheme",
         optInApproved: "optInApproved",
-        autoOpen: "autoOpen",
         editorTitle: "editorTitle",
         rescanTitle: "rescanTitle",
         addSenderTarget: "addSenderTarget",
         autoClearConsole: "autoClearConsole",
         domain: "domain",
         selectedAccount: "selectedAccount",
-        reloadPending: "reloadPending",
         usageResponse: "usageResponse",
         reloadAutoOptions: "reloadAutoOptions",
+        reloadAutoEditor: "reloadAutoEditor",
         counter: "counter",
         menuConfig: "menuConfig",
         activeRescans: "activeRescans",
         hasInitialized: "hasInitialized",
     },
 };
+
+export async function updateActiveRescans(rescanResponse, prune = false) {
+    try {
+        if (typeof rescanResponse.Status !== "object") {
+            console.error("invalid rescanResponse.status:", rescanResponse);
+            throw new Error("invalid rescanResponse status");
+        }
+        let activeRescans = await config.session.get(config.key.activeRescans);
+        if (typeof activeRescans !== "object") {
+            activeRescans = {};
+        }
+        var updated = {};
+        for (const [rescanId, rescanStatus] of Object.entries(rescanResponse.Status)) {
+            updated[rescanId] = Object.assign({}, rescanStatus);
+            activeRescans[rescanId] = Object.assign({}, rescanStatus);
+        }
+        if (prune) {
+            activeRescans = updated;
+        }
+        await config.session.set(config.key.activeRescans, activeRescans);
+    } catch (e) {
+        console.error(e);
+    }
+}

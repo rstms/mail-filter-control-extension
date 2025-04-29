@@ -848,6 +848,7 @@ export class BooksTab {
             if (message.accountId === this.account.id) {
                 await this.populateAddSenderTarget(message.bookName);
             }
+            return "addSenderTargetChangedResponse";
         } catch (e) {
             console.error(e);
         }

@@ -1,28 +1,19 @@
-import { initThemeSwitcher } from "./theme_switcher.js";
 import { config } from "./config.js";
+import { initThemeSwitcher } from "./theme_switcher.js";
 import { differ, accountEmailAddress, verbosity } from "./common.js";
 import { ClassesTab } from "./tab_classes.js";
 import { BooksTab } from "./tab_books.js";
 import { OptionsTab } from "./tab_options.js";
 import { AdvancedTab } from "./tab_advanced.js";
 import { HelpTab } from "./tab_help.js";
-import { generateUUID } from "./common.js";
 import { getAccount, getAccounts, getSelectedAccount } from "./accounts.js";
-
-// FIXME: add refresh command to filterctl to get classes, books,  account data in one filterctl response
-
-// FIXME: implement all element event listeners here and call functions on tab objects
-// FIXME: share controls container between this page and all tab objects
 
 /* globals messenger, window, document, console, MutationObserver */
 const verbose = verbosity.editor;
 
-//const disconnectOnBackgroundSuspend = false;
-
 initThemeSwitcher();
 
 let hasLoaded = false;
-let backgroundSuspended = false;
 let usagePopulated = false;
 let accountsPopulated = false;
 
@@ -30,11 +21,6 @@ let activeTab = "classes";
 
 // map between select element index and accountId
 let accountIndex = {};
-
-// connection state vars
-let port = null;
-let backgroundCID = null;
-const editorCID = "editor-" + generateUUID();
 
 let controls = {};
 
@@ -492,197 +478,22 @@ async function disableEditorControl(id, disable) {
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-//  messages handlers
+//  message handlers
 //
 ///////////////////////////////////////////////////////////////////////////////
-
-async function connect() {
-    try {
-        console.log("connect:", { port, backgroundCID, backgroundSuspended });
-        if (port === null) {
-            if (verbose) {
-                console.debug("editor: requesting background page...");
-            }
-            const background = await messenger.runtime.getBackgroundPage();
-            if (verbose) {
-                console.debug("background: page:", { url: background, suspended: backgroundSuspended });
-            }
-
-            if (verbose) {
-                console.log("editor connecting to background as:", editorCID);
-            }
-            port = await messenger.runtime.connect({ name: editorCID });
-            port.onMessage.addListener(onPortMessage);
-            port.onDisconnect.addListener(onDisconnect);
-            if (verbose) {
-                console.debug("editor: connection pending on port:", port);
-            }
-        }
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-async function disconnect() {
-    try {
-        if (port !== null) {
-            if (verbose) {
-                console.debug("disconnecting");
-            }
-            await port.disconnect();
-        }
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-async function onPortMessage(message, sender) {
-    try {
-        if (verbose) {
-            console.debug("editor.onPortMessage:", message, sender);
-        }
-        let ret = undefined;
-        switch (message.id) {
-            case "ENQ":
-                if (message.dst !== editorCID) {
-                    throw new Error("destination CID mismatch");
-                }
-                backgroundCID = message.src;
-                if (verbose) {
-                    console.debug("editor: set background CID:", backgroundCID);
-                }
-                ret = await messenger.runtime.sendMessage({ id: "ACK", src: editorCID, dst: backgroundCID });
-                if (verbose) {
-                    console.debug("ACK returned:", ret);
-                }
-                console.log("editor connected to:", backgroundCID);
-                // complete initialization now that we're connected to the background page
-                await populateAccounts();
-                break;
-            default:
-                await onMessage(message, sender);
-                break;
-        }
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-async function onMessage(message, sender) {
-    try {
-        if (verbose) {
-            console.debug("editor.onMessage:", message, sender);
-        }
-
-        // process messages allowed without connection
-        switch (message.id) {
-            case "backgroundActivated":
-                backgroundSuspended = false;
-                console.log(message.id, { backgroundSuspended });
-                return;
-            case "backgroundSuspendCanceled":
-                backgroundSuspended = false;
-                console.log(message.id, { backgroundSuspended });
-                return;
-            case "backgroundSuspending":
-                backgroundSuspended = true;
-                console.log(message.id, { backgroundSuspended });
-                return;
-            case "addSenderTargetChanged":
-                await tab.books.handleAddSenderTargetChanged(message);
-                return;
-        }
-
-        if (backgroundCID === null) {
-            console.error("not connected, discarding:", message);
-            return;
-        }
-
-        if (message.src === undefined || message.dst === undefined) {
-            console.debug("missing src/dst, discarding:", message);
-            return;
-        }
-
-        if (message.src !== backgroundCID) {
-            console.error("unexpected src ID, discarding:", message);
-            return;
-        }
-
-        if (message.dst !== editorCID) {
-            console.error("unexpected dst ID, discarding:", message);
-            return;
-        }
-
-        let response = undefined;
-
-        switch (message.id) {
-            default:
-                console.error("unknown message ID:", message);
-                break;
-        }
-
-        if (response !== undefined) {
-            if (typeof response !== "object") {
-                response = { response: response };
-            }
-            if (verbose) {
-                console.debug("editor.onMessage: sending response:", response);
-            }
-        }
-        return response;
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-async function onDisconnect(port) {
-    try {
-        port = null;
-        backgroundCID = null;
-        if (verbose) {
-            console.log("onDisconnect:", { port, backgroundCID, backgroundSuspended });
-        }
-    } catch (e) {
-        console.error(e);
-    }
-}
 
 async function sendMessage(message) {
     try {
         if (verbose) {
-            console.log("sendMessage:", { port, backgroundCID, backgroundSuspended });
+            console.debug("sendMessage:", message);
+            console.log("sendMessage:", message.id);
         }
-
-        /*
-        if (backgroundSuspended) {
-            console.debug("suspended; awaiting background initialization");
-            let initialized = await messenger.runtime.sendMessage({ id: "isInitialized", src: editorCID, dst: backgroundCID });
-            console.debug("isInitialized returned:", initialized);
-            if (initialized) {
-                backgroundSuspended = false;
-            }
-        }
-	*/
-
-        /*
-	if (port === null || backgroundCID === null) {
-            console.log("reconnecting");
-            await connect();
-            await connected();
-            console.log("reconnected");
-        }
-
-        if (port === null || backgroundCID === null) {
-            console.error("SendMessage: port not connected:", port, backgroundCID, backgroundSuspended, message);
-            throw new Error("SendMessage: port not connected");
-        }
-	*/
 
         if (typeof message === "string") {
             message = { id: message };
         }
-        message.src = editorCID;
-        message.dst = backgroundCID;
+        message.src = "editor";
+        message.dst = "background";
         if (verbose) {
             console.debug("editor.sendMessage:", message);
         }
@@ -724,8 +535,13 @@ async function onLoad() {
 
         // set advanced tab visible state from the local.storage config
         await setAdvancedTabVisible();
-
-        await connect();
+        if (verbose) {
+            console.log("editor: sending ENQ...");
+        }
+        let response = await sendMessage("ENQ");
+        if (verbose) {
+            console.log("editor: sent ENQ, received:", response);
+        }
 
         if (verbose) {
             console.debug("editor page loaded");
@@ -749,7 +565,7 @@ async function enableAccountControls(enabled) {
 
 async function onUnload() {
     try {
-        await disconnect();
+        console.warn("editor unloading");
     } catch (e) {
         console.error(e);
     }
@@ -786,7 +602,9 @@ async function onCancelClick() {
 
 async function onOkClick() {
     try {
-        console.log("okButtonClick");
+        if (verbose) {
+            console.log("okButtonClick");
+        }
         var state = undefined;
         switch (activeTab) {
             case "classes":
@@ -890,6 +708,50 @@ async function onClassesCellInsert(sender) {
 async function onBooksConnectionChanged(sender) {
     try {
         await tab.books.onConnectionChanged(sender);
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function onMessage(message, sender) {
+    try {
+        if (verbose) {
+            console.debug("onMessage:", { message, sender });
+            console.log("onMessage:", message.id);
+        }
+
+        if (message.dst !== "editor") {
+            return false;
+        }
+        return new Promise((resolve) => {
+            handleMessage(message, sender).then((response) => {
+                resolve(response);
+            });
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function handleMessage(message, sender) {
+    try {
+        if (verbose) {
+            console.debug("handleMessage:", { message, sender });
+        }
+        let response = undefined;
+        switch (message.id) {
+            case "ENQ":
+                response = { id: "ACK", src: "editor", dst: message.src };
+                if (verbose) {
+                    console.log("editor received ENQ, returning:", response);
+                }
+                populateAccounts();
+                return response;
+
+            case "addSenderTargetChanged":
+                return await tab.books.handleAddSenderTargetChanged(message);
+        }
+        throw new Error("editor received unexpected message:" + message.id);
     } catch (e) {
         console.error(e);
     }
@@ -1039,10 +901,8 @@ addControl("applyButton", "apply-button", "click", onApplyClick);
 addControl("okButton", "ok-button", "click", onOkClick);
 addControl("cancelButton", "cancel-button", "click", onCancelClick);
 
-// handler for runtime broadcast messages
-messenger.runtime.onMessage.addListener(onMessage);
-
 // DOM event handlers
 window.addEventListener("load", onLoad);
 window.addEventListener("beforeunload", onUnload);
 messenger.storage.onChanged.addListener(onStorageChange);
+messenger.runtime.onMessage.addListener(onMessage);

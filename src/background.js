@@ -1,12 +1,11 @@
 console.warn("BEGIN background.js");
 
 import { isAccount, getAccounts, getAccount, getSelectedAccount } from "./accounts.js";
-import * as ports from "./ports.js";
 import { accountEmailAddress } from "./common.js";
 import { displayProcess } from "./display.js";
 import { FilterDataController } from "./filterctl.js";
 import { email } from "./email.js";
-import { config } from "./config.js";
+import { config, updateActiveRescans } from "./config.js";
 import { verbosity } from "./common.js";
 
 /* globals messenger, console, window */
@@ -23,9 +22,6 @@ let filterDataController = null;
 let approved = false;
 let hasInitialized = false;
 
-let pendingConnections = new Map();
-const backgroundId = "background-page";
-
 // updated when messageDisplayAction button is updated
 let messageDisplayActionAccountId = undefined;
 
@@ -33,44 +29,6 @@ let messageDisplayActionAccountId = undefined;
 let displayedFolderAccountId = undefined;
 
 let menus = {};
-
-///////////////////////////////////////////////////////////////////////////////
-//
-//  startup and suspend state management
-//
-///////////////////////////////////////////////////////////////////////////////
-
-/*
-class InitState {
-    constructor() {
-        this.complete = false;
-        this.resolve = null;
-    }
-
-    setCompleted() {
-        console.log("InitState: setCompleted");
-        this.complete = true;
-        if (this.resolve !== null) {
-            console.log("InitState: resolving:", true);
-            this.resolve(true);
-        }
-    }
-
-    isCompleted() {
-        return new Promise((resolve) => {
-            if (this.complete) {
-                console.log("InitState: returning true without wait");
-                resolve(true);
-            } else {
-                console.log("InitState: returning promise");
-                this.resolve = resolve;
-            }
-        });
-    }
-}
-
-let initState = new InitState();
-*/
 
 async function initialize(mode) {
     try {
@@ -90,7 +48,6 @@ async function initialize(mode) {
             });
         }
 
-        console.assert(loaded, "initialize called before onLoad");
         console.assert(!hasInitialized, "redundant initialize call");
 
         if (!approved) {
@@ -113,7 +70,9 @@ async function getFilterDataController(flags = { force: false, readState: true, 
         if (filterDataController === null || flags.force) {
             filterDataController = new FilterDataController(email);
             if (flags.readState) {
-                console.warn("reloading filterctl state");
+                if (verbose) {
+                    console.warn("reloading filterctl state");
+                }
                 await filterDataController.readState();
             }
         }
@@ -142,31 +101,9 @@ async function onInstalled() {
     }
 }
 
-async function postEditorMessage(message, flags = { requireSuccess: false }) {
-    try {
-        var port = await ports.get("editor", ports.NO_WAIT);
-        if (port === undefined) {
-            if (flags.requireSuccess === false) {
-                return false;
-            }
-            throw new Error("editor not connected");
-        } else {
-            if (typeof message === "string") {
-                message = { id: message };
-            }
-            message.src = backgroundId;
-            await port.postMessage(message);
-        }
-        return true;
-    } catch (e) {
-        console.error(e);
-    }
-}
-
 async function onSuspend() {
     try {
         console.warn("background suspending");
-        await postEditorMessage("backgroundSuspending");
     } catch (e) {
         console.error(e);
     }
@@ -175,62 +112,47 @@ async function onSuspend() {
 async function onSuspendCanceled() {
     try {
         console.warn("background suspend canceled");
-        await postEditorMessage("backgroundSuspendCanceled");
     } catch (e) {
         console.error(e);
     }
 }
 
-async function findContentTab(tabTitle) {
+async function contentTabTitle(name) {
     try {
-        const tabs = await messenger.tabs.query({ type: "content", title: tabTitle });
+        let key = undefined;
+        switch (name) {
+            case "editor":
+                key = config.key.editorTitle;
+                break;
+            case "rescan":
+                key = config.key.rescanTitle;
+                break;
+            default:
+                throw new Error("unknown content tab name:" + name);
+        }
+        let title = await config.local.get(key);
+        if (typeof title !== "string" || title === "") {
+            throw new Error("content tab title value undefined:" + key);
+        }
+        return title;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function findContentTab(name, force = false) {
+    try {
+        const title = await contentTabTitle(name);
+        const tabs = await messenger.tabs.query({ type: "content", title });
         for (const tab of tabs) {
-            if (tab.title === tabTitle) {
+            if (tab.title === title) {
                 return tab;
             }
         }
+        if (force) {
+            return await openContentTab(name);
+        }
         return null;
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-async function reconnectEditor(flags = { activate: false }) {
-    try {
-        if (verbose) {
-            console.debug("reconnectEditor");
-        }
-
-        var editorTab = await findContentTab(await config.local.get(config.key.editorTitle));
-        if (verbose) {
-            console.debug("editor tab:", editorTab);
-        }
-
-        var port = await ports.get("editor", ports.NO_WAIT);
-        if (verbose) {
-            console.debug("editor port:", port);
-        }
-
-        if (editorTab) {
-            if (flags.activate) {
-                await messenger.tabs.update(editorTab.id, { active: true });
-            }
-            if (port === undefined) {
-                // editor is open but port is null; assume we're coming back from being suspended
-                if (verbose) {
-                    console.debug("sending activated notification");
-                }
-                let response = await messenger.runtime.sendMessage({ id: "backgroundActivated", src: backgroundId });
-                if (verbose) {
-                    console.debug("activated notification response:", response);
-                }
-            }
-            return true;
-        }
-        if (verbose) {
-            console.debug("editor tab not open");
-        }
-        return false;
     } catch (e) {
         console.error(e);
     }
@@ -247,111 +169,108 @@ async function focusEditorWindow() {
             await messenger.runtime.openOptionsPage();
             return;
         }
-
-        if (!(await reconnectEditor({ activate: true }))) {
-            await messenger.tabs.create({ url: "./editor.html" });
-        }
+        let tab = await findContentTab("editor", true);
+        await messenger.tabs.update(tab.id, { active: true });
     } catch (e) {
         console.error(e);
     }
 }
 
-async function openRescanTab() {
-    try {
-        var rescanTab = await findContentTab(await config.local.get(config.key.rescanTitle));
-        if (!rescanTab) {
-            if (verbose) {
-                console.debug("opening new rescan tab");
+function openAndLoad(url, active = false) {
+    if (verbose) {
+        console.log("openAndLoad:", { url, active });
+    }
+    return new Promise((resolve, reject) => {
+        try {
+            let newTab = undefined;
+            async function listener(tabId, info) {
+                if (verbose) {
+                    console.debug("tab update:", tabId, info);
+                }
+                if (newTab !== undefined && tabId === newTab.id && info.status === "complete") {
+                    messenger.tabs.onUpdated.removeListener(listener);
+                    if (verbose) {
+                        console.debug("openAndLoad returning:", newTab);
+                    }
+                    resolve(newTab);
+                }
             }
-            await messenger.tabs.create({ url: "./rescan.html" });
+            messenger.tabs.onUpdated.addListener(listener);
+            messenger.tabs.create({ url, active }).then((tab) => {
+                if (verbose) {
+                    console.debug("tab created:", tab);
+                }
+                newTab = tab;
+            });
+        } catch (e) {
+            reject(e);
+        }
+    });
+}
+
+async function openContentTab(name) {
+    try {
+        const title = await contentTabTitle(name);
+        const url = `./${name}.html`;
+        if (verbose) {
+            console.log("openContentTab:", { name, url, title });
+        }
+        var tab = await findContentTab(name);
+        if (tab) {
+            if (verbose) {
+                console.debug("found existing content tab:", name, tab);
+            }
         } else {
             if (verbose) {
-                console.debug("found existing rescan tab:", rescanTab);
+                console.debug("opening content tab:", name, title, url);
             }
+            tab = await openAndLoad(url);
         }
-        /*
-        var port = await ports.get("rescan", ports.NO_WAIT);
+        let message = { id: "ENQ", src: "background", dst: name };
         if (verbose) {
-            console.debug("rescan port:", port);
+            console.debug("background sending ENQ:", message);
         }
-
-        if (rescanTab) {
-            if (port === undefined) {
-                // rescan is open but port is null; assume we're coming back from being suspended
-                if (verbose) {
-                    console.debug("sending activated notification to rescan");
-                }
-                let response = await messenger.runtime.sendMessage({ id: "backgroundActivated", src: backgroundId, dst: "rescan" });
-                if (verbose) {
-                    console.debug("activated notification response from rescan:", response);
-                }
-            }
-            return true;
+        let response = await messenger.runtime.sendMessage(message);
         if (verbose) {
-            console.debug("rescan tab not open");
+            console.log("background sent ENQ, got:", response);
         }
-	*/
+        if (typeof response !== "object" || response.src !== name) {
+            throw new Error(`failed opening content tab ${name}`);
+        }
+        if (verbose) {
+            console.debug("openContentTab returning:", tab);
+        }
+        return tab;
     } catch (e) {
         console.error(e);
     }
 }
 
-/*
-async function postRescanMessage(message) {
+async function sendMessage(message, force = false) {
     try {
-	await openRescanTab();
-        var port = await ports.get("rescan", ports.NO_WAIT);
-        if (port === undefined) {
-            throw new Error("postRescan failed: rescan not connected");
+        if (verbose) {
+            console.log("background: sendMessage:", { message, force });
         }
-        message.src = backgroundId;
-        await port.postMessage(message);
+        let name = message.dst;
+        let tab = await findContentTab(name, force);
+        if (!tab && !force) {
+            if (verbose) {
+                console.log("tab not open, not sending");
+            }
+            return;
+        }
+        message.src = "background";
+        return await messenger.runtime.sendMessage(message);
     } catch (e) {
         console.error(e);
     }
 }
-*/
 
 ///////////////////////////////////////////////////////////////////////////////
 //
-//  messages handler
+//  message handlers
 //
 ///////////////////////////////////////////////////////////////////////////////
-
-async function onConnect(port) {
-    try {
-        if (verbose) {
-            console.debug("onConnect:", port);
-        }
-        port.onMessage.addListener(onPortMessage);
-        port.onDisconnect.addListener(onDisconnect);
-        if (pendingConnections.has(port.name)) {
-            console.error("onConnect: pending connection exists:", port.name);
-        }
-        pendingConnections.set(port.name, port);
-        if (verbose) {
-            console.log("background received connection request:", port.name);
-        }
-        port.postMessage({ id: "ENQ", src: backgroundId, dst: port.name });
-
-        if (verbose) {
-            console.debug("returning from onConnect");
-        }
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-async function onPortMessage(message, sender) {
-    try {
-        if (verbose) {
-            console.debug("background.onPortMessage:", message, sender);
-        }
-        console.error("unexpected port message:", message, sender);
-    } catch (e) {
-        console.error(e);
-    }
-}
 
 async function onCommand(command, tab) {
     try {
@@ -380,60 +299,53 @@ async function onCommand(command, tab) {
     }
 }
 
-async function onMessage(message, sender) {
+function onMessage(message, sender) {
     try {
         if (verbose) {
             console.debug("background.onMessage:", message, sender);
             console.log("background.OnMessage received:", message.id, message.src);
         }
 
-        let response = undefined;
-        let port = undefined;
+        if (!(typeof message.src === "string" && message.src.length > 0)) {
+            console.error("missing src in message:", message);
+            throw new Error("missing message src");
+        }
 
+        if (!(typeof message.dst === "string" && message.dst.length > 0)) {
+            console.error("missing dst in message:", message);
+            throw new Error("missing message dst");
+        }
+
+        if (message.dst != "background") {
+            return false;
+        }
+
+        return new Promise((resolve) => {
+            handleMessage(message, sender).then((response) => {
+                resolve(response);
+            });
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function handleMessage(message, sender) {
+    try {
         // process messages not requiring connection
+        let response = undefined;
         switch (message.id) {
             case "focusEditorWindow":
-                await focusEditorWindow();
-                return;
+                response = await focusEditorWindow();
+                break;
 
-            case "ACK":
-                if (message.id === "ACK") {
-                    port = pendingConnections.get(message.src);
-                } else {
-                    port = await ports.get(message.src, ports.NO_WAIT);
+            case "ENQ":
+                response = { id: "ACK", src: "background", dst: message.src };
+                if (verbose) {
+                    console.log("background received ENQ, returning:", response);
                 }
-                console.log("background accepted connection:", port.name);
-                ports.add(port);
-                pendingConnections.delete(port.name);
-                response = { background: backgroundId };
-                response[ports.portLabel(port)] = port.name;
-                return response;
+                break;
 
-            case "isInitialized":
-                return hasInitialized;
-            //await initState.isCompleted();
-        }
-
-        if (message.src === undefined || message.dst === undefined) {
-            console.error("missing src/dst, discarding:", message);
-            return false;
-        }
-
-        /*
-        if (message.dst !== backgroundId) {
-            console.error("unexpected dst ID, discarding:", message);
-            return false;
-        }
-	*/
-
-        /*
-        if (port === undefined) {
-            console.error("unexpected src ID, discarding:", message);
-            return false;
-        }
-	*/
-
-        switch (message.id) {
             case "getClasses":
                 response = await handleGetClasses(message);
                 break;
@@ -497,9 +409,6 @@ async function onMessage(message, sender) {
             case "getAddSenderTarget":
                 response = await getAddSenderTarget(message.accountId);
                 break;
-            case "findEditorTab":
-                response = await findContentTab(await config.local.get(config.key.editorTitle));
-                break;
             case "initMenus":
                 response = await initMenus();
                 break;
@@ -511,28 +420,12 @@ async function onMessage(message, sender) {
                 break;
             default:
                 console.error("background: received unexpected message:", message, sender);
-                break;
+                throw new Error("background received unexpected message:" + message.id);
         }
-        if (response !== undefined) {
-            if (typeof response !== "object") {
-                response = { result: response };
-            }
-        }
-        if (verbose) {
-            console.log("background.onMessage returning:", response);
+        if (typeof response !== "object") {
+            response = { result: response };
         }
         return response;
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-async function onDisconnect(port) {
-    try {
-        if (verbose) {
-            console.debug("onDisconnect:", port);
-        }
-        ports.remove(port);
     } catch (e) {
         console.error(e);
     }
@@ -647,7 +540,9 @@ async function initMenus() {
 
         // save menu config in session storage
         await config.session.set(config.key.menuConfig, menus);
-        console.log("saved menu config:", menus);
+        if (verbose) {
+            console.log("saved menu config:", menus);
+        }
 
         // FIXME: maybe we don't need to update the messaage display action here
         // because it will be done on onDisplayedFolderChanged and/or onSelectedMessagesChanged
@@ -759,7 +654,7 @@ async function onMenuClicked(info, tab) {
             console.debug("onMenuClicked:", { info, tab, approved, loaded });
         }
         if (!approved) {
-            return;
+            await messenger.runtime.openOptionsPage();
         }
         if (!Object.hasOwn(info, "menuItemId")) {
             console.error("missing menuItemId:", info, tab);
@@ -777,13 +672,16 @@ async function onMenuClicked(info, tab) {
 
 async function onMenuShown(info, tab) {
     try {
-        console.assert(hasInitialized, "menu shown before initialize");
         if (verbose) {
             console.debug("onMenuShown:", { info, tab, approved, loaded, hasInitialized });
         }
         if (!approved) {
             return;
         }
+        if (!hasInitialized) {
+            console.warn("onMenuShown before initialize");
+        }
+
         if (!Object.hasOwn(info, "menuIds")) {
             console.error("missing menuIds:", info, tab);
             throw new Error("missing menuIds");
@@ -1048,23 +946,15 @@ async function requestRescan(account, path, messageIds) {
             Folder: path,
             MessageIds: messageIds,
         };
-
-        let message = `Rescanning message ${messageIds[0]} in folder ${path}...`;
-        if (messageIds.length > 1) {
-            message = `Rescanning ${messageIds.length} Messages in folder '${path}'...`;
+        if (verbose) {
+            console.log("Rescan request:", request);
         }
-        //let display = await displayProcess(message, { total: messageIds.length, timeoutSeconds: 300 });
-        //const body = JSON.stringify(request, null, 2);
-        console.log("Rescan request:", { message, request });
         let response = await email.sendRequest(account.id, "rescan", request);
-        console.log("Rescan response:", response);
-        let activeRescans = await config.session.get(config.key.activeRescans);
-        if (typeof activeRescans !== "object") {
-            activeRescans = {};
+        if (verbose) {
+            console.log("Rescan response:", response);
         }
-        activeRescans[response.Status.Id] = { accountId: account.id, request, response };
-        await config.session.set(config.key.activeRescans, activeRescans);
-        await openRescanTab();
+        await findContentTab("rescan", true);
+        await updateActiveRescans(response);
     } catch (e) {
         console.error(e);
     }
@@ -1125,11 +1015,15 @@ async function setAddSenderTarget(accountId, bookName) {
             if (verbose) {
                 console.debug("changed addSenderTarget:", accountId, bookName, targets);
             }
-            await postEditorMessage({
+            let response = await sendMessage({
                 id: "addSenderTargetChanged",
                 accountId: accountId,
                 bookName: bookName,
+                dst: "editor",
             });
+            if (verbose) {
+                console.log("background: sent addSenderTargetChanged, got:", response);
+            }
             if (messageDisplayActionAccountId !== undefined && messageDisplayActionAccountId === accountId) {
                 await updateMessageDisplayAction(accountId, bookName);
             }
@@ -1183,17 +1077,21 @@ async function addSenderToFilterBook(accountId, tab, book) {
                 .replace(/^[^<]*</g, "")
                 .replace(/>.*$/g, "");
             if (!sendersAdded.includes(sender)) {
-                let display = await displayProcess(`Adding '${sender}' to '${book}'...`);
-                console.log("AddSender request:", sender, book, accountId);
+                let display = await displayProcess(`Adding '${sender}' to '${book}'...`, 0, 10, { ticker: 1 });
+                if (verbose) {
+                    console.log("AddSender request:", sender, book, accountId);
+                }
                 filterctl
                     .addSenderToFilterBook(accountId, sender, book)
                     .then((response) => {
                         display.complete(`Added '${sender}' to '${book}'`).then(() => {
-                            console.log("AddSender completed:", sender, book, accountId, response);
+                            if (verbose) {
+                                console.log("AddSender completed:", sender, book, accountId, response);
+                            }
                         });
                     })
                     .catch((e) => {
-                        display.complete(`AddSender '${sender}' to '${book}' failed: ${e}`).then(() => {
+                        display.fail(`AddSender '${sender}' to '${book}' failed: ${e}`).then(() => {
                             console.error("AddSender failed:", sender, book, accountId, e);
                         });
                     });
@@ -1278,19 +1176,26 @@ async function onMessageDisplayActionClicked(tab, info) {
 
 async function handleCacheControl(message) {
     try {
+        var result;
         switch (message.command) {
             case "clear":
-                await getFilterDataController({ force: true, resetState: true });
-                return "cleared";
+                await config.local.remove(config.key.filterctlState);
+                result = "cleared";
+                break;
             case "enable":
-                await getFilterDataController({ force: true, enablePersistence: true });
-                return "enabled";
+                config.local.setBool(config.key.filterctlCacheEnabled, true);
+                result = "enabled";
+                break;
             case "disable":
-                await getFilterDataController({ force: true, enablePersistence: false });
-                return "disabled";
+                config.local.setBool(config.key.filterctlCacheEnabled, false);
+                await getFilterDataController({ force: true });
+                result = "disabled";
+                break;
             default:
                 throw new Error("unknown cacheControl command: " + message.command);
         }
+        await getFilterDataController({ force: true, readState: true, purgePending: true });
+        return result;
     } catch (e) {
         console.error(e);
     }
@@ -1588,7 +1493,7 @@ async function onLoad() {
         approved = await config.local.getBool(config.key.optInApproved);
         hasInitialized = await config.session.getBool(config.key.hasInitialized);
 
-        console.warn("onLoad:", { approved, hasInitialized });
+        console.warn("onLoad:", { approved, "hasInitialized[from session storage]": hasInitialized });
 
         if (approved) {
             let menuConfig = await config.session.get(config.key.menuConfig);
@@ -1604,14 +1509,8 @@ async function onLoad() {
         if (await config.local.getBool(config.key.reloadAutoOptions)) {
             await config.local.remove(config.key.reloadAutoOptions);
             await messenger.runtime.openOptionsPage();
-            return;
-        }
-        let autoOpen = await config.local.getBool(config.key.autoOpen);
-        if (await config.local.getBool(config.key.reloadPending)) {
-            await config.local.remove(config.key.reloadPending);
-            autoOpen = true;
-        }
-        if (autoOpen) {
+        } else if (await config.local.getBool(config.key.reloadAutoEditor)) {
+            await config.local.remove(config.key.reloadAutoEditor);
             await focusEditorWindow();
         }
     } catch (e) {
@@ -1621,7 +1520,7 @@ async function onLoad() {
 
 async function onUpdateAvailable(details) {
     try {
-        console.log("onUpdateAvailable:", details);
+        console.warn("onUpdateAvailable:", details);
     } catch (e) {
         console.error(e);
     }
@@ -1639,18 +1538,10 @@ messenger.runtime.onSuspend.addListener(onSuspend);
 messenger.runtime.onSuspendCanceled.addListener(onSuspendCanceled);
 messenger.runtime.onUpdateAvailable.addListener(onUpdateAvailable);
 
-messenger.runtime.onConnect.addListener(onConnect);
 messenger.runtime.onMessage.addListener(onMessage);
 
 messenger.menus.onClicked.addListener(onMenuClicked);
 messenger.menus.onShown.addListener(onMenuShown);
-
-//messenger.windows.onCreated.addListener(onWindowCreated);
-
-//messenger.tabs.onCreated.addListener(onTabCreated);
-//messenger.tabs.onActivated.addListener(onTabActivated);
-//messenger.tabs.onUpdated.addListener(onTabUpdated);
-//messenger.tabs.onRemoved.addListener(onTabRemoved);
 
 //messenger.messageDisplay.onMessagesDisplayed.addListener(onMessagesDisplayed);
 messenger.mailTabs.onDisplayedFolderChanged.addListener(onDisplayedFolderChanged);

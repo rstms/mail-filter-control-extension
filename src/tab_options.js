@@ -138,7 +138,8 @@ export class OptionsTab {
             const domains = await this.domains.get({ refresh: true });
             if (differ(this.pendingDomains, domains)) {
                 await this.domains.setAll(this.pendingDomains);
-                await config.local.setBool(config.key.reloadPending, true);
+                await this.clearCache();
+                await config.local.setBool(config.key.reloadAutoEditor, true);
                 await messenger.runtime.reload();
             }
         } catch (e) {
@@ -194,8 +195,15 @@ export class OptionsTab {
         try {
             await config.local.reset();
             await config.session.reset();
-            await config.local.setBool(config.key.reloadPending, true);
             await messenger.runtime.reload();
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async clearCache() {
+        try {
+            await config.local.remove(config.key.filterctlState);
         } catch (e) {
             console.error(e);
         }
@@ -203,8 +211,8 @@ export class OptionsTab {
 
     async onClearCacheClick() {
         try {
-            await messenger.runtime.sendMessage({ id: "cacheControl", command: "clear" });
-            await config.local.setBool(config.key.reloadPending, true);
+            await this.clearCache();
+            await config.local.setBool(config.key.reloadAutoEditor, true);
             await messenger.runtime.reload();
         } catch (e) {
             console.error(e);

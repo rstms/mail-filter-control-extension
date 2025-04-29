@@ -66,7 +66,7 @@ export async function getSelectedAccount() {
             return accounts[selectedId];
         }
         for (const account of Object.values(accounts)) {
-            console.warn(`selected account reset to ${account}`);
+            console.warn(`selected account reset to ${account.id}`);
             await config.local.set(config.key.selectedAccount, account.id);
             return account;
         }

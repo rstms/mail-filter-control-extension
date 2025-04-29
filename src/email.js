@@ -1,8 +1,7 @@
-import { generateUUID, differ, verbosity } from "./common.js";
-import { domainPart } from "./common.js";
+import { generateUUID, differ, verbosity, domainPart, accountEmailAddress, accountDomain } from "./common.js";
 import { AsyncMap } from "./asyncmap.js";
 import { config } from "./config.js";
-import { getAccount, getAccounts } from "./accounts.js";
+import { getAccount } from "./accounts.js";
 
 /* global console, messenger, setTimeout, clearTimeout, setInterval, clearInterval, window */
 
@@ -17,14 +16,12 @@ const REQUEST_TIMEOUT_SECONDS = 30;
 const NO_TIMEOUT = 0;
 const RESPONSE_EXPIRE_SECONDS = 10;
 const RESPONSE_CHECK_INTERVAL = 1024;
+const AUTO_DELETE_EXPIRE_SECONDS = 15;
 
 const moduleCID = "module-" + generateUUID();
 
 class EmailRequest {
     constructor(controller, autoDelete, minimizeCompose, backgroundSend) {
-        if (verbose) {
-            console.debug("autoDelete:", autoDelete);
-        }
         this.controller = controller;
         this.id = generateUUID();
         this.autoDelete = autoDelete;
@@ -159,6 +156,9 @@ class EmailController {
             this.pendingResponses = new AsyncMap(); // unmatched received responses	    key: requestId  value: response body data
             this.processedMessages = new AsyncMap(); // messages already processed	    key: Message-ID value: requestId
             this.resolvedRequests = new AsyncMap(); // requests already resolved	    key: requestID  value: bool
+            this.flags = new AsyncMap();
+            this.autoDeleteState = new AsyncMap();
+
             if (verbose) {
                 console.debug("New EmailController:", moduleCID, this.CID);
             }
@@ -272,7 +272,7 @@ class EmailController {
                     request.resolve(request, request.response);
                 }
 
-                // delate pending responses for requests that have already been resolved
+                // delete pending responses for requests that have already been resolved
                 const pendingResponseIds = await this.pendingResponses.keys();
                 for (const responseId of pendingResponseIds) {
                     if (await this.resolvedRequests.has(responseId)) {
@@ -295,14 +295,68 @@ class EmailController {
                         response,
                     );
                 }
+            }
 
-                // check for already resolved responses
+            if (await config.local.getBool(config.key.autoDelete)) {
+                const completedAutoDeletes = await this.autoDeleteState.scan((id, state) => {
+                    return this.processPendingAutoDelete(id, state);
+                });
+                for (const [id, state] of completedAutoDeletes.entries()) {
+                    if (verbose) {
+                        console.debug("autoDelete completed:", id, state);
+                    }
+                }
+            }
 
-                // delete requests from Sent
-                await this.deleteSentRequests();
+            const expiredAutoDeletes = await this.autoDeleteState.expire(AUTO_DELETE_EXPIRE_SECONDS);
+            for (const [id, state] of expiredAutoDeletes.entries()) {
+                if (verbose) {
+                    console.debug("autoDelete expired:", id, state);
+                }
             }
 
             // FIXME: check here for expired this.resolvedRequests and this.processedMessages on a long timeout
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async setAutoDeleteState(accountId, folder, state) {
+        try {
+            await this.autoDeleteState.set(accountId + "_" + folder, { accountId, folder, state });
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async processPendingAutoDelete(id, autoDelete) {
+        try {
+            if (autoDelete.state === "clean") {
+                return true;
+            }
+            let deleted = await this.autoDeleteScan(autoDelete.accountId, autoDelete.folder);
+            switch (autoDelete.state) {
+                case "dirty":
+                    if (deleted > 0) {
+                        if (verbose) {
+                            console.debug("autoDelete:", id, "dirty->pending");
+                        }
+                        autoDelete.state = "pending";
+                    }
+                    break;
+                case "pending":
+                    if (deleted === 0) {
+                        if (verbose) {
+                            console.debug("autoDelete:", id, "pending->clean");
+                        }
+                        autoDelete.state = "clean";
+                        return true;
+                    }
+                    break;
+                default:
+                    console.error("unexpected state:", autoDelete);
+            }
+            return false;
         } catch (e) {
             console.error(e);
         }
@@ -414,7 +468,7 @@ class EmailController {
             }
 
             const identity = request.account.identities[0];
-            const domain = domainPart(identity.email);
+            const domain = accountDomain(request.account);
             const recipient = "filterctl@" + domain;
 
             const message = {
@@ -437,54 +491,95 @@ class EmailController {
             }
 
             await this.checkPending();
+            await this.setAutoDeleteState(request.account.id, "sent", "dirty");
             return sent;
         } catch (e) {
             console.error(e);
         }
     }
 
-    async deleteSentRequests() {
+    async autoDeleteScan(accountId, folderType) {
         try {
+            if (verbose) {
+                console.debug("autoDeleteScan:", accountId, folderType);
+            }
             if (!(await config.local.getBool(config.key.autoDelete))) {
                 return;
             }
-            for (const account of Object.values(await getAccounts())) {
-                const identity = account.identities[0];
-                const domain = domainPart(identity.email);
-                const recipient = "filterctl@" + domain;
-                let folders = await messenger.folders.query({ accountId: account.id, specialUse: ["sent"] });
-                for (const folder of folders) {
-                    if (verbose) {
-                        console.debug("Scanning folder:", folder);
-                    }
-                    while (true) {
-                        let queryResult = await messenger.messages.query({
-                            accountId: account.id,
-                            folderId: folder.id,
-                            recipients: recipient,
-                            fromMe: true,
-                            //headerMessageId: sent.messageId,
-                        });
-                        let deleteIds = [];
-                        for (const message of queryResult.messages) {
-                            if (
-                                (message.folder.path === "/Sent" || message.folder.path === "/Trash") &&
-                                message.recipients[0] === recipient
-                            ) {
-                                console.log("Deleting Sent Request:", message);
-                                deleteIds.push(message.id);
-                            } else {
-                                console.error("Delete query found unexpected message:", message);
-                            }
-                        }
-                        if (deleteIds.length > 0) {
-                            await messenger.messages.delete(deleteIds, true);
-                        } else {
+            let deletedCount = 0;
+            const account = await getAccount(accountId);
+            const email = accountEmailAddress(account);
+            const domain = accountDomain(account);
+            const filterctlAddress = "filterctl@" + domain;
+
+            let folders = await messenger.folders.query({ accountId, specialUse: [folderType] });
+            for (const folder of folders) {
+                if (verbose) {
+                    console.debug("Scanning folder:", email, filterctlAddress, folder.path);
+                }
+                let folderScanComplete = false;
+                while (!folderScanComplete) {
+                    let queryResult = undefined;
+                    switch (folderType) {
+                        case "sent":
+                            queryResult = await messenger.messages.query({
+                                accountId,
+                                folderId: folder.id,
+                                recipients: filterctlAddress,
+                                fromMe: true,
+                            });
                             break;
+                        case "inbox":
+                            queryResult = await messenger.messages.query({
+                                accountId,
+                                folderId: folder.id,
+                                author: filterctlAddress,
+                                toMe: true,
+                            });
+                            break;
+                        default:
+                            throw new Error(`unexpected autodelete folder type ${folderType}`);
+                    }
+                    let messagesToDelete = new Map();
+                    for (const message of queryResult.messages) {
+                        switch (folderType) {
+                            case "sent":
+                                if (message.folder.path === "/Sent" && message.recipients[0] === filterctlAddress) {
+                                    messagesToDelete.set(message.id, message);
+                                } else {
+                                    console.error("Delete query found unexpected Sent message:", message);
+                                }
+                                break;
+                            case "inbox":
+                                if (
+                                    message.folder.path === "/INBOX" &&
+                                    message.author === filterctlAddress &&
+                                    message.subject === "filterctl response"
+                                ) {
+                                    messagesToDelete.set(message.id, message);
+                                } else {
+                                    console.error("Delete query found unexpected INBOX message:", message);
+                                }
+                                break;
                         }
+                    }
+                    if (messagesToDelete.size > 0) {
+                        deletedCount += messagesToDelete.size;
+                        if (verbose) {
+                            console.debug(
+                                "Deleting filterctl messages:",
+                                accountEmailAddress(account),
+                                folder.path,
+                                Array.from(messagesToDelete.values()),
+                            );
+                        }
+                        await messenger.messages.delete(Array.from(messagesToDelete.keys()), true);
+                    } else {
+                        folderScanComplete = true;
                     }
                 }
             }
+            return deletedCount;
         } catch (e) {
             console.error(e);
         }
@@ -630,13 +725,9 @@ class EmailController {
                         }
                     }
 
-                    // autodelete filterctl response messages with any requestId
-                    if (await config.local.getBool(config.key.autoDelete)) {
-                        await this.deleteMessage(message);
-                    }
-
                     // do a check without waiting for the timer
                     await this.checkPending();
+                    await this.setAutoDeleteState(folder.accountId, "inbox", "dirty");
                 }
             }
         } catch (e) {

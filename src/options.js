@@ -43,7 +43,7 @@ async function enableButton(checked) {
 }
 
 async function openEditor() {
-    await messenger.runtime.sendMessage({ id: "focusEditorWindow" });
+    await messenger.runtime.sendMessage({ id: "focusEditorWindow", src: "options", dst: "background" });
 }
 
 document.addEventListener("DOMContentLoaded", restoreOptions);

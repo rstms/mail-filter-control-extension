@@ -1,5 +1,5 @@
 import { config } from "./config.js";
-import { accountDomain, verbosity } from "./common.js";
+import { accountDomain, differ, verbosity } from "./common.js";
 
 /* globals messenger, console */
 
@@ -13,41 +13,40 @@ const verbose = verbosity.domains;
 ///////////////////////////////////////////////////////////////////////////////
 
 export class Domains {
+    constructor() {
+        this.domains = undefined;
+    }
     async init() {
         try {
-            this.accounts = {};
-            this.accountDomains = {};
-            for (const account of await messenger.accounts.list()) {
-                if (account.type === "imap") {
-                    this.accounts[account.id] = account;
-                    this.accountDomains[account.id] = accountDomain(account);
-                }
-            }
-            if (typeof this.domains === "object" && Object.keys(this.domains).length > 0) {
-                return;
-            }
-            this.domains = await config.local.get(config.key.domain);
-            if (typeof this.domains !== "object" || Object.keys(this.domains).length < 1) {
-                this.domains = {};
-            }
+            this.accountDomains = await this.all();
 
-            // ensure domains has a value for all accounts
-            for (const account of Object.values(this.accounts)) {
-                let domain = this.accountDomains[account.id];
-                if (!Object.hasOwn(this.domains, domain)) {
+            if (typeof this.domains !== "object") {
+                this.domains = {};
+                for (const domain of this.accountDomains) {
                     this.domains[domain] = false;
                 }
             }
 
-            // remove any domains not in accountDomains
-            let domainList = Object.keys(this.domains);
-            for (const domain of domainList) {
-                if (!Object.values(this.accountDomains).includes(domain)) {
-                    delete this.domains[domain];
+            // read enabled domains from config
+            let configDomains = await config.local.get(config.key.domain);
+
+            // ensure the configDomains are a valid object
+            if (typeof configDomains !== "object") {
+                configDomains = {};
+            }
+
+            // update this.domains with any enabled found in config
+            for (const domain of this.accountDomains) {
+                let enabled = configDomains[domain];
+                if (typeof enabled === "boolean") {
+                    this.domains[domain] = enabled;
                 }
             }
 
-            await this.write();
+            // write any changes to config
+            if (differ(configDomains, this.domains)) {
+                await this.write();
+            }
         } catch (e) {
             console.error(e);
         }
@@ -55,10 +54,9 @@ export class Domains {
 
     async write() {
         try {
-            await this.init();
             // sanity check domains
             for (const [k, v] of Object.entries(this.domains)) {
-                if (typeof k !== "string" || typeof v !== "boolean" || !Object.values(this.accountDomains).includes(k)) {
+                if (typeof k !== "string" || typeof v !== "boolean" || !this.accountDomains.includes(k)) {
                     console.error("write: invalid domains:", this.domains);
                     throw new Error("invalid domains");
                 }
@@ -94,6 +92,7 @@ export class Domains {
     async setAll(domains) {
         try {
             this.domains = Object.assign({}, domains);
+            this.accountDomains = await this.all();
             await this.write();
         } catch (e) {
             console.error(e);
@@ -103,8 +102,10 @@ export class Domains {
     async setEnabled(domain, enabled) {
         try {
             await this.init();
-            console.assert(Object.hasOwn(this.domains, domain));
-            console.assert(typeof enabled === "boolean");
+            if (!Object.hasOwn(this.domains, domain)) {
+                throw new Error("invalid domain:" + domain);
+            }
+            enabled = enabled ? true : false;
             if (this.domains[domain] !== enabled) {
                 this.domains[domain] = enabled;
                 await this.write();
@@ -116,12 +117,13 @@ export class Domains {
 
     async all() {
         try {
-            await this.init();
-            const ret = [];
-            for (const domain of Object.keys(this.domains)) {
-                ret.push(domain);
+            let domains = {};
+            for (const account of await messenger.accounts.list()) {
+                if (account.type === "imap") {
+                    domains[accountDomain(account)] = true;
+                }
             }
-            return ret.sort();
+            return Array.from(Object.keys(domains)).sort();
         } catch (e) {
             console.error(e);
         }
@@ -144,18 +146,19 @@ export class Domains {
 
     async isEnabled(domain) {
         try {
-            const enabled = await this.enabled();
-            return enabled.includes(domain);
+            const enabledDomains = await this.enabled();
+            return enabledDomains.includes(domain);
         } catch (e) {
             console.error(e);
         }
     }
 }
 
+let domains = new Domains();
+
 export async function getEnabledDomains() {
     try {
-        const domains = new Domains();
-        const enabled = domains.enabled();
+        const enabled = await domains.enabled();
         if (verbose) {
             console.debug("getEnabledDomains returning: ", enabled);
         }

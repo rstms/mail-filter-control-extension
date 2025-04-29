@@ -1,229 +1,276 @@
-import { verbosity, generateUUID } from "./common.js";
-import { config } from "./config.js";
+import { verbosity, accountDomain } from "./common.js";
+import { config, updateActiveRescans } from "./config.js";
+import { getAccounts } from "./accounts.js";
+import { initThemeSwitcher } from "./theme_switcher.js";
+import { displayEvent } from "./display.js";
 
-/* globals console, document, messenger, setInterval, window */
+/* globals console, document, messenger, setTimeout, clearTimeout, window */
 
 const verbose = verbosity.rescan;
 
-let hasLoaded = false;
-let backgroundSuspended = false;
+let timer = null;
+const ACTIVE_REFRESH_SECONDS = 1;
+const INACTIVE_REFRESH_SECONDS = 30;
 
-const TICK_INTERVAL = 1000;
-let tickCount = 0;
+let rescanStack = null;
+let rescanTemplate = null;
 
-// connection state vars
-let port = null;
-let backgroundCID = null;
-const rescanCID = "rescan-" + generateUUID();
+initThemeSwitcher();
+let reportedRescans = new Map();
+let errorIds = new Map();
 
-let ticker = null;
-
-async function initialize() {
+function resetRefreshTimer(seconds = 0) {
     try {
-        console.log("rescan initialize");
-        if (!ticker) {
-            setInterval(onTick, TICK_INTERVAL);
+        if (timer) {
+            clearTimeout(timer);
+            timer = null;
         }
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-async function onTick() {
-    try {
-        tickCount++;
-        if (tickCount % 60 === 0) {
-            console.log("rescan.onTick:", ++tickCount);
-        }
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-async function checkRescanStatus() {
-    try {
-        let activeRescans = await config.session.get(config.key.activeRescans);
-        if (typeof activeRescans !== "object") {
-            activeRescans = {};
-        }
-        for (const [rescanId, rescan] of Object.entries(activeRescans)) {
-            const response = await sendMessage({
-                id: "sendCommand",
-                accountId: rescan.accountId,
-                command: "rescanstatus",
-                argument: rescanId,
-            });
-            rescan.status = response;
-        }
-        await config.session.set(config.key.activeRescans, activeRescans);
-        console.log("activeRescans:", activeRescans);
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-async function newRescan(message) {
-    try {
-        console.log("newRescan:", message);
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-//
-//  messages handlers
-//
-///////////////////////////////////////////////////////////////////////////////
-
-async function connect() {
-    try {
-        console.log("connect:", { port, backgroundCID, backgroundSuspended });
-        if (port === null) {
+        if (seconds !== 0) {
             if (verbose) {
-                console.debug("rescan: requesting background page...");
+                console.debug("setting refresh timout:", seconds);
             }
-            const background = await messenger.runtime.getBackgroundPage();
-            if (verbose) {
-                console.debug("background: page:", { url: background, suspended: backgroundSuspended });
-            }
-
-            if (verbose) {
-                console.log("rescan connecting to background as:", rescanCID);
-            }
-            port = await messenger.runtime.connect({ name: rescanCID });
-            port.onMessage.addListener(onPortMessage);
-            port.onDisconnect.addListener(onDisconnect);
-            if (verbose) {
-                console.debug("rescan: connection pending on port:", port);
-            }
+            timer = setTimeout(refreshRescanStatus, seconds * 1000);
         }
     } catch (e) {
         console.error(e);
     }
 }
 
-async function disconnect() {
-    try {
-        if (port !== null) {
-            if (verbose) {
-                console.debug("rescan: disconnecting");
-            }
-            await port.disconnect();
-        }
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-async function onPortMessage(message, sender) {
+async function onRefreshClicked() {
     try {
         if (verbose) {
-            console.debug("rescan.onPortMessage:", message, sender);
+            console.log("onRefreshClicked");
         }
-        let ret = undefined;
-        switch (message.id) {
-            case "ENQ":
-                if (message.dst !== rescanCID) {
-                    throw new Error("destination CID mismatch");
-                }
-                backgroundCID = message.src;
-                if (verbose) {
-                    console.debug("rescan: set background CID:", backgroundCID);
-                }
-                ret = await messenger.runtime.sendMessage({ id: "ACK", src: rescanCID, dst: backgroundCID });
-                if (verbose) {
-                    console.debug("rescan: our ACK returned:", ret);
-                }
-                console.log("rescan connected to:", backgroundCID);
+        await refreshRescanStatus();
+    } catch (e) {
+        console.error(e);
+    }
+}
 
-                // complete initialization now that we're connected to the background page
-                await initialize();
-                break;
-            default:
-                await onMessage(message, sender);
-                break;
+async function refreshRescanStatus() {
+    try {
+        if (verbose) {
+            console.log("refreshRescanStatus");
+        }
+        const accounts = await getAccounts();
+        let domainAccounts = {};
+        for (const [accountId, account] of Object.entries(accounts)) {
+            domainAccounts[accountDomain(account)] = accountId;
+        }
+        let updated = {};
+        for (const accountId of Object.values(domainAccounts)) {
+            const response = await sendMessage({
+                id: "sendCommand",
+                accountId: accountId,
+                command: "rescanstatus",
+            });
+            if (verbose) {
+                console.debug("rescan response:", response);
+            }
+            for (const [rescanId, rescanStatus] of Object.entries(response.Status)) {
+                updated[rescanId] = Object.assign({}, rescanStatus);
+            }
+        }
+        await updateActiveRescans({ Status: updated }, true);
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function onDOMContentLoaded() {
+    try {
+        rescanTemplate = document.getElementById("rescan-item").innerHTML;
+        if (verbose) {
+            console.log("rescanTemplate:", rescanTemplate);
+        }
+        rescanStack = document.getElementById("rescan-stack");
+        rescanStack.innerHTML = "";
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function updateDisplay(rescans = undefined) {
+    try {
+        if (rescans === undefined) {
+            rescans = await config.session.get(config.key.activeRescans);
+        }
+        let rescansFound = false;
+        let runningRescansFound = false;
+        if (verbose) {
+            console.log("updateDisplay:", rescans);
+        }
+
+        let ids = Object.keys(rescans).sort();
+        for (const id of ids) {
+            let rescan = rescans[id];
+            rescansFound = true;
+            if (rescan.Running) {
+                runningRescansFound = true;
+            }
+            let fields = renderRescanStatus(rescan);
+            let itemId = "item-" + id;
+            let labelId = "label-" + id;
+            let progressId = "progress-" + id;
+            let progressBarId = "progress-bar-" + id;
+            let errorPanelId = "error-panel-" + id;
+            let label = undefined;
+            let progress = undefined;
+            let progressBar = undefined;
+            let errorPanel = undefined;
+            if (document.getElementById(itemId)) {
+                label = document.getElementById(labelId);
+                progress = document.getElementById(progressId);
+                progressBar = document.getElementById(progressBarId);
+                errorPanel = document.getElementById(errorPanelId);
+            } else {
+                let item = document.createElement("div");
+                item.innerHTML = rescanTemplate;
+                item.classList.add("border");
+                item.classList.add("rounded-0");
+                item.style.padding = "10px";
+                item.id = itemId;
+                label = item.getElementsByClassName("form-label")[0];
+                label.id = labelId;
+                progress = item.getElementsByClassName("progress")[0];
+                progress.id = progressId;
+                progressBar = item.getElementsByClassName("progress-bar")[0];
+                progressBar.id = progressBarId;
+                rescanStack.appendChild(item);
+                errorPanel = item.getElementsByClassName("rescan-errors")[0];
+                errorPanel.id = errorPanelId;
+                errorPanel.hidden = true;
+            }
+            label.textContent = fields.join("\t");
+            if (rescan.Running) {
+                const percentage = (rescan.Completed / rescan.Total) * 100;
+                progressBar.style.width = percentage + "%";
+                progressBar.setAttribute("aria-valuenow", rescan.Completed);
+                progressBar.textContent = "";
+            } else {
+                if (!progress.hidden) {
+                    progress.hidden = true;
+                    if (!reportedRescans.has(id)) {
+                        await displayEvent(fields.join(" "), { title: "Mail Filter Rescan" });
+                        reportedRescans.set(id, true);
+                    }
+                }
+            }
+            if (rescan.Errors.length > 0) {
+                errorIds.set(id, true);
+                let content = "<details>\n";
+                content += "<summary>Error Details</summary>\n";
+
+                errorPanel.hidden = false;
+                for (const error of Array.from(rescan.Errors)) {
+                    content += `<p>Error: ${error.Message}<br>\n`;
+                    for (const [key, value] of Object.entries(error.Headers)) {
+                        content += `${key}: ${value}<br>\n`;
+                    }
+                    content += `Pathname: ${error.Pathname}</p>\n`;
+                }
+                content += "</details>";
+                errorPanel.innerHTML = content;
+                errorPanel.hidden = false;
+            }
+        }
+        await removeExpiredElements(Array.from(Object.keys(rescans)));
+
+        if (rescansFound) {
+            resetRefreshTimer(runningRescansFound ? ACTIVE_REFRESH_SECONDS : INACTIVE_REFRESH_SECONDS);
+        } else {
+            window.close();
         }
     } catch (e) {
         console.error(e);
     }
 }
 
-async function onMessage(message, sender) {
+async function removeExpiredElements(rescanIds) {
+    try {
+        for (const element of document.getElementsByClassName("progress")) {
+            const item = element.parentElement;
+            let itemRescanId = item.id.replace(/^item-/, "");
+            if (verbose) {
+                console.debug({ itemRescanId }, rescanIds.includes(itemRescanId));
+            }
+            if (rescanIds.includes(itemRescanId)) {
+                // don't remove active rescans
+                continue;
+            }
+            if (errorIds.has(itemRescanId) === true) {
+                // don't remove rescans with errors
+                continue;
+            }
+            rescanStack.removeChild(item);
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function renderRescanStatus(rescan) {
+    try {
+        let content = [];
+        content.push(rescan.Request.Username);
+        content.push(rescan.Request.Folder);
+        if (rescan.Total === 1) {
+            content.push("<" + rescan.Request.MessageIds[0] + ">");
+        } else {
+            content.push(`<${rescan.Total} messages>`);
+        }
+        content.push(rescan.Running ? "Running" : "Complete");
+        content.push(`[${rescan.Completed} of ${rescan.Total}]`);
+        if (rescan.FailCount > 0) {
+            content.push(`(${rescan.FailCount} failed)`);
+        }
+        if (rescan.Running) {
+            let latest = rescan.LatestFile.replace(/^[^/]*[/]/g, "");
+            content.push(latest);
+        }
+        return content;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function onMessage(message, sender) {
+    try {
+        if (message.dst !== "rescan") {
+            return false;
+        }
+        return new Promise((resolve) => {
+            handleMessage(message, sender).then((response) => {
+                resolve(response);
+            });
+        });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function handleMessage(message, sender) {
     try {
         if (verbose) {
             console.debug("rescan.onMessage:", message, sender);
-        }
-
-        // process messages allowed without connection
-        switch (message.id) {
-            case "backgroundActivated":
-                backgroundSuspended = false;
-                console.log(message.id, { backgroundSuspended });
-                return;
-            case "backgroundSuspendCanceled":
-                backgroundSuspended = false;
-                console.log(message.id, { backgroundSuspended });
-                return;
-            case "backgroundSuspending":
-                backgroundSuspended = true;
-                console.log(message.id, { backgroundSuspended });
-                return;
-        }
-
-        if (backgroundCID === null) {
-            console.error("not connected, discarding:", message);
-            return;
-        }
-
-        if (message.src === undefined || message.dst === undefined) {
-            console.debug("missing src/dst, discarding:", message);
-            return;
-        }
-
-        if (message.src !== backgroundCID) {
-            console.error("unexpected src ID, discarding:", message);
-            return;
-        }
-
-        if (message.dst !== rescanCID) {
-            console.log("dstID mismatch, discarding:", message);
-            return;
-        }
-
-        let response = undefined;
-
-        switch (message.id) {
-            case "newRescan":
-                await newRescan(message);
-                break;
-
-            default:
-                console.error("unknown message ID:", message);
-                break;
-        }
-
-        if (response !== undefined) {
-            if (typeof response !== "object") {
-                response = { response: response };
-            }
             if (verbose) {
-                console.debug("rescan.onMessage: sending response:", response);
+                console.log("rescan onMessage:", message.id);
             }
         }
-        return response;
-    } catch (e) {
-        console.error(e);
-    }
-}
+        var response;
+        switch (message.id) {
+            case "ENQ":
+                response = { id: "ACK", src: "rescan", dst: message.src };
+                if (verbose) {
+                    console.log("resend received ENQ, returning:", response);
+                }
+                return response;
 
-async function onDisconnect(port) {
-    try {
-        port = null;
-        backgroundCID = null;
-        if (verbose) {
-            console.log("rescan.onDisconnect:", { port, backgroundCID, backgroundSuspended });
+            case "rescanStarted":
+                return await updateDisplay();
         }
+        console.error("unexpected message:", message);
+        throw new Error("unexpected message:" + message.id);
     } catch (e) {
         console.error(e);
     }
@@ -231,15 +278,9 @@ async function onDisconnect(port) {
 
 async function sendMessage(message) {
     try {
-        if (verbose) {
-            console.log("rescan.sendMessage:", { port, backgroundCID, backgroundSuspended });
-        }
+        message.src = "rescan";
+        message.dst = "background";
 
-        if (typeof message === "string") {
-            message = { id: message };
-        }
-        message.src = rescanCID;
-        message.dst = backgroundCID;
         if (verbose) {
             console.debug("rescan.sendMessage:", message);
         }
@@ -253,47 +294,43 @@ async function sendMessage(message) {
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////
-//
-//  DOM event handlers
-//
-////////////////////////////////////////////////////////////////////////////////
-
 async function onLoad() {
     try {
+        console.warn("rescan loading");
         document.title = await config.local.get(config.key.rescanTitle);
-        if (verbose) {
-            console.debug("rescan page loading");
-        }
-
-        if (hasLoaded) {
-            throw new Error("redundant load event");
-        }
-        hasLoaded = true;
-
-        if (verbose) {
-            console.debug("editor page loaded");
-        }
-
-        await connect();
     } catch (e) {
         console.error(e);
     }
 }
 
-async function onUnload() {
+async function onBeforeUnload() {
     try {
-        await disconnect();
+        console.warn("rescan unloading");
+        resetRefreshTimer();
     } catch (e) {
         console.error(e);
     }
 }
 
-// handler for runtime broadcast messages
-messenger.runtime.onMessage.addListener(onMessage);
+async function onStorageChanged(changes, areaName) {
+    try {
+        if (verbose) {
+            console.debug("storageChanged:", { changes, areaName });
+        }
+        if (areaName === "session") {
+            let rescanChanges = changes[config.key.activeRescans];
+            if (rescanChanges !== undefined) {
+                await updateDisplay(rescanChanges.newValue);
+            }
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
 
-// DOM event handlers
 window.addEventListener("load", onLoad);
-window.addEventListener("beforeunload", onUnload);
-
-document.getElementById("rescan-status-button").addEventListener("click", checkRescanStatus);
+window.addEventListener("beforeunload", onBeforeUnload);
+window.addEventListener("DOMContentLoaded", onDOMContentLoaded);
+document.getElementById("rescan-refresh-button").addEventListener("click", onRefreshClicked);
+messenger.storage.onChanged.addListener(onStorageChanged);
+messenger.runtime.onMessage.addListener(onMessage);

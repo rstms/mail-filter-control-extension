@@ -1,14 +1,17 @@
 /* global console */
 
+export const TICKS_PER_SECOND = 1000;
+
 export const verbosity = {
     accounts: false,
     background: false,
     config: false,
     display: false,
     editor: false,
-    email: true,
+    email: false,
     filterctl: false,
     ports: false,
+    rescan: false,
     tab_advanced: false,
     tab_books: false,
     tab_classes: false,

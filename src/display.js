@@ -1,30 +1,25 @@
-import { verbosity } from "./common.js";
+import { verbosity, TICKS_PER_SECOND } from "./common.js";
 
 /* global console, messenger, setTimeout, clearTimeout, setInterval, clearInterval */
 
 const verbose = verbosity.display;
-
-const TICKS_PER_SECOND = 1000;
 
 const defaults = {
     title: "Mail Filter",
     count: 0,
     total: 1,
     icon: "index",
-    ticker: true,
-    tickerSeconds: 1,
-    autoRemove: true,
-    autoRemoveSeconds: 60,
-    timeout: true,
-    timeoutSeconds: 15,
+    ticker: false,
+    autoRemove: false,
+    timeout: false,
 };
 
 function setActivityTicker(activity) {
     try {
-        if (activity.ticker && activity.tickerSeconds !== 0) {
+        if (typeof activity.ticker === "number" && activity.ticker !== 0) {
             activity.tickerId = setInterval(() => {
                 activity._tick();
-            }, activity.tickerSeconds * TICKS_PER_SECOND);
+            }, activity.ticker * TICKS_PER_SECOND);
         }
     } catch (e) {
         console.error(e);
@@ -33,10 +28,10 @@ function setActivityTicker(activity) {
 
 function setActivityTimeout(activity) {
     try {
-        if (activity.timeout && activity.timeoutSeconds !== 0) {
+        if (typeof activity.timeout === "number" && activity.timeout !== 0) {
             activity.timeoutId = setTimeout(() => {
                 activity._timeout();
-            }, activity.timeoutSeconds * TICKS_PER_SECOND);
+            }, activity.timeout * TICKS_PER_SECOND);
         }
     } catch (e) {
         console.error(e);
@@ -45,10 +40,10 @@ function setActivityTimeout(activity) {
 
 function setActivityAutoremove(activity) {
     try {
-        if (activity.autoRemove && activity.autoRemoveSeconds !== 0) {
+        if (typeof activity.autoRemove === "number" && activity.autoRemove !== 0) {
             activity.autoremoveId = setTimeout(() => {
                 activity.remove();
-            }, activity.autoRemoveSeconds * TICKS_PER_SECOND);
+            }, activity.autoRemove * TICKS_PER_SECOND);
         }
     } catch (e) {
         console.error(e);
@@ -60,7 +55,7 @@ class Activity {
         this.id = null;
         this.tickerId = null;
         this.timeoutId = null;
-        this.arutoremoveId = null;
+        this.autoremoveId = null;
         this.isPending = false;
         this.parseOptions(defaults);
         this.context = {
@@ -87,21 +82,17 @@ class Activity {
                 console.log("addProcess:", message, options);
             }
 
-            let callerSetTotal = Object.hasOwn(options, "total");
-
             this.parseOptions(options);
 
-            if (callerSetTotal) {
-                // if caller set the total disable the timer tick, the caller will update for each item
-                this.ticker = false;
-            } else if (this.ticker) {
-                // the caller didn't specify a total and ticker is enabled, so use the timeout value for the total
+            if (typeof this.ticker === "number" && this.ticker !== 0 && this.total === undefined) {
+                // the caller set a ticker didn't specify a total and ticker is enabled, so use the timeout value for the total
                 this.total = this.timeoutSeconds;
             }
             this.message = message;
             this.id = await messenger.activityManager.addProcess(this.title, this.message, this.total, {
                 icon: this.icon,
                 context: this.context,
+                completed: this.count,
             });
             this.isPending = true;
             this.startTime = Date.now();
@@ -208,39 +199,47 @@ class Activity {
         }
     }
 
-    async update(message, options = {}) {
+    async update(message, count) {
         try {
             if (verbose) {
-                console.log("update:", message, options, this);
+                console.log("update:", message, this);
             }
-            console.assert(this.isPending);
-            let count = options.count;
-            if (count === undefined) {
-                count = ++this.count;
+            if (typeof message !== "string") {
+                throw new Error("message is not string");
             }
-            this.parseOptions(options);
+            if (typeof count !== "number") {
+                throw new Error("count is not number");
+            }
+            if (!this.isPending) {
+                throw new Error("cannot update: not a Progress activity");
+            }
+            this.message = message;
             this.count = count;
-            await messenger.activityManager.updateProgress(this.id, this.message, this.count, { total: this.total });
+            await messenger.activityManager.updateProgress(this.id, this.message, this.count);
         } catch (e) {
             console.error(e);
         }
     }
 }
 
-export async function displayEvent(message) {
+export async function displayEvent(message, options = {}) {
     try {
+        console.error("displayEvent called");
         let activity = new Activity();
-        await activity.addEvent(message);
+        await activity.addEvent(message, options);
         return activity;
     } catch (e) {
         console.error(e);
     }
 }
 
-export async function displayProcess(message) {
+export async function displayProcess(message, count, total, options = {}) {
     try {
+        console.error("displayProcess called");
         let activity = new Activity();
-        await activity.addProcess(message);
+        options.count = count;
+        options.total = total;
+        await activity.addProcess(message, options);
         return activity;
     } catch (e) {
         console.error(e);
