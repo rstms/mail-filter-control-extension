@@ -52,7 +52,7 @@ async function initialize(mode) {
         // clear session cached menu config
         await initMenus();
 
-        if (await isApproved()) {
+        if (!(await isApproved())) {
             await messenger.runtime.openOptionsPage();
             return;
         }
