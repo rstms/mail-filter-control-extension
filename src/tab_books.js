@@ -390,6 +390,8 @@ export class BooksTab {
                 return;
             }
 
+            this.controls.tableBody.innerHTML = "<tr><td>scanning address book connections...</td></tr>";
+
             await this.scanConnectedBooks(force);
 
             let cxnmap = {};

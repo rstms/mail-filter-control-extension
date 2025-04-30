@@ -13,7 +13,7 @@ export const verbosity = {
     ports: false,
     rescan: false,
     tab_advanced: false,
-    tab_books: false,
+    tab_books: true,
     tab_classes: false,
     tab_help: false,
     tab_options: false,
