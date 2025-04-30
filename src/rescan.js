@@ -174,11 +174,12 @@ async function updateDisplay(rescans = undefined) {
                 errorPanel.hidden = false;
             }
         }
+
         await removeExpiredElements(Array.from(Object.keys(rescans)));
 
         if (rescansFound) {
             resetRefreshTimer(runningRescansFound ? ACTIVE_REFRESH_SECONDS : INACTIVE_REFRESH_SECONDS);
-        } else {
+        } else if (errorIds.size() === 0) {
             window.close();
         }
     } catch (e) {
