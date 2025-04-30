@@ -16,11 +16,13 @@ var cardDAV = class extends ExtensionCommon.ExtensionAPI {
             cardDAV: {
                 pathToken(path) {
                     let parts = path.split("/");
-                    return parts[parts.length - 2];
+                    let index = parts.indexOf("addressbooks");
+                    return parts[index + 2];
                 },
-                pathUser(path) {
+                pathUsername(path) {
                     let parts = path.split("/");
-                    return parts[parts.length - 3];
+                    let index = parts.indexOf("addressbooks");
+                    return parts[index + 1];
                 },
                 tokenBook(email, token) {
                     return token.substring(email.length + 1);
@@ -29,8 +31,8 @@ var cardDAV = class extends ExtensionCommon.ExtensionAPI {
                     return "https://" + username.split("@")[1];
                 },
                 book(dir) {
-                    let username = dir.getStringValue("carddav.username", "");
                     let serverURL = dir.getStringValue("carddav.url", "");
+                    let username = this.pathUsername(serverURL);
                     let token = this.pathToken(serverURL);
                     let book = this.tokenBook(username, token);
                     return {
@@ -72,7 +74,8 @@ var cardDAV = class extends ExtensionCommon.ExtensionAPI {
                 },
                 async list(username, password) {
                     console.log("list:", username, password);
-                    let books = [];
+                    let bookNames = [];
+                    let books = {};
                     let hostname = this.hostname(username);
                     let tries = 0;
                     let matched = false;
@@ -82,7 +85,7 @@ var cardDAV = class extends ExtensionCommon.ExtensionAPI {
                         for (const book of detected) {
                             let token = this.pathToken(book.url.pathname);
                             let uuid = await this.generateHashUUID(book.url.href + username);
-                            let email = this.pathUser(book.url.pathname);
+                            let email = this.pathUsername(book.url.pathname);
                             matched = username === email;
                             if (!matched) {
                                 console.error("username mismatch:", username, email, book);
@@ -91,8 +94,8 @@ var cardDAV = class extends ExtensionCommon.ExtensionAPI {
                                 }
                                 throw new Error("retries exceeded");
                             }
-                            // return the same root keys as a connected cardDAV directory
-                            books.push({
+                            bookNames.push(book.name);
+                            books[book.name] = {
                                 name: book.name,
                                 token: token,
                                 book: this.tokenBook(username, token),
@@ -107,12 +110,17 @@ var cardDAV = class extends ExtensionCommon.ExtensionAPI {
                                     origin: book.url.origin,
                                     pathname: book.url.pathname,
                                 },
-                            });
+                            };
                         }
                     }
-                    // FIXME: sort list by book name before returning
-                    console.log("list returning:", books);
-                    return books;
+                    // return the list sorted by book name
+                    bookNames.sort();
+                    let ret = [];
+                    for (const name of bookNames) {
+                        ret.push(books[name]);
+                    }
+                    console.log("list returning:", ret);
+                    return ret;
                 },
                 async connect(username, password, token) {
                     console.log("connect:", username, password, token);
@@ -150,10 +158,14 @@ var cardDAV = class extends ExtensionCommon.ExtensionAPI {
                     return book;
                 },
                 async disconnect(uuid) {
+                    let ret;
                     let dir = MailServices.ab.getDirectoryFromUID(uuid);
-                    let ret = MailServices.ab.deleteAddressBook(dir.URI);
-                    //FIXME: see what to return here
-                    console.log("disconnect returning:", ret);
+                    if (dir) {
+                        MailServices.ab.deleteAddressBook(dir.URI);
+                        ret = `${uuid} disconnected`;
+                    } else {
+                        ret = `${uuid} not found`;
+                    }
                     return ret;
                 },
                 async get(uuid) {
