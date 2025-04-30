@@ -390,9 +390,10 @@ export class BooksTab {
                 return;
             }
 
-            this.controls.tableBody.innerHTML = "<tr><td>scanning address book connections...</td></tr>";
-
-            await this.scanConnectedBooks(force);
+            if (force) {
+                this.controls.tableBody.innerHTML = "<tr><td>scanning address book connections...</td></tr>";
+                await this.scanConnectedBooks(force);
+            }
 
             let cxnmap = {};
             for (const cxn of this.connectedBooks[this.account.id]) {
@@ -628,7 +629,7 @@ export class BooksTab {
 
             this.setStatus("FilterBook '" + cxn.book + "' is connected as '" + cxn.token + "'...");
             await this.scanConnectedBooks(true);
-            await this.populateConnections(true);
+            await this.populateConnections();
             return true;
         } catch (e) {
             console.error(e);
@@ -785,7 +786,8 @@ export class BooksTab {
                     }
                 }
             }
-            await this.populateConnections(true);
+            await this.scanConnectedBooks(true);
+            await this.populateConnections();
         } catch (e) {
             console.error(e);
         }
