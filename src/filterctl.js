@@ -794,10 +794,10 @@ export class FilterDataController {
 
     async readState() {
         try {
-            const enabled = config.local.getBool(config.key.filterctlCacheEnabled);
+            const enabled = config.local.getBool(config.local.key.filterctlCacheEnabled);
             if (enabled) {
                 console.warn("reading filterctl state from local storage");
-                let state = await this.validateState(await config.local.get(config.key.filterctlState));
+                let state = await this.validateState(await config.local.get(config.local.key.filterctlState));
                 this.datasets.classes.dirty = await this.initDatasets(CLASSES, state.classes.dirty);
                 this.datasets.classes.server = await this.initDatasets(CLASSES, state.classes.server);
                 this.datasets.books.dirty = await this.initDatasets(BOOKS, state.books.dirty);
@@ -811,10 +811,10 @@ export class FilterDataController {
 
     async writeState(flags = { force: false }) {
         try {
-            const enabled = config.local.getBool(config.key.filterctlCacheEnabled);
+            const enabled = config.local.getBool(config.local.key.filterctlCacheEnabled);
             if (enabled || flags.force) {
                 console.warn("writing filterctl state to local storage");
-                await config.local.set(config.key.filterctlState, await this.state());
+                await config.local.set(config.local.key.filterctlState, await this.state());
             }
         } catch (e) {
             console.error(e);

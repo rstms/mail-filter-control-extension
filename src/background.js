@@ -10,75 +10,63 @@ import { verbosity } from "./common.js";
 
 /* globals messenger, console, window */
 
-// FIXME: test when no imap accounts are present
-// FIXME  test when no domains are selected
-
 // control flags
 const verbose = verbosity.background;
 
-// state vars
-let loaded = false;
-let filterDataController = null;
-let approved = false;
-let hasInitialized = false;
+// FIXME:   global variables cannot be used because of non-persistent background
+//	    so replace them all with session storage keys
 
 // updated when messageDisplayAction button is updated
-let messageDisplayActionAccountId = undefined;
+//let messageDisplayActionAccountId = undefined;
 
 // updated when onDisplayedFolderChanged events received
-let displayedFolderAccountId = undefined;
+//let displayedFolderAccountId = undefined;
 
-let menus = {};
+async function isApproved() {
+    return config.local.getBool(config.local.key.optInApproved);
+}
 
 async function initialize(mode) {
     try {
-        if (await config.local.getBool(config.key.autoClearConsole)) {
+        if (await config.local.getBool(config.local.key.autoClearConsole)) {
             console.clear();
         }
-
-        console.warn("initialize:", { mode, loaded, approved, hasInitialized });
-
         const manifest = await messenger.runtime.getManifest();
+        const approved = await isApproved();
         console.log(`${manifest.name} v${manifest.version} (${mode}) Approved=${approved}`);
 
         if (verbose) {
-            console.debug({
-                config: await config.local.getAll(),
-                commands: await messenger.commands.getAll(),
-            });
+            console.debug({ commands: await messenger.commands.getAll() });
         }
 
-        console.assert(!hasInitialized, "redundant initialize call");
+        if (await config.session.getBool(config.session.key.initialized)) {
+            console.error("redundant initialize call");
+        }
 
-        if (!approved) {
+        await config.session.setBool(config.session.key.initialized, true);
+
+        // we're initalizing, so forget pending filterctl state
+        let filterctl = await getFilterDataController();
+        await filterctl.purgePending();
+
+        // clear session cached menu config
+        await initMenus();
+
+        if (await isApproved()) {
             await messenger.runtime.openOptionsPage();
             return;
         }
 
-        await getFilterDataController({ readState: true, purgePending: true });
-        await initMenus();
-
-        await config.session.setBool(config.key.hasInitialized, true);
-        hasInitialized = true;
+        await autoOpen();
     } catch (e) {
         console.error(e);
     }
 }
 
-async function getFilterDataController(flags = { force: false, readState: true, purgePending: false }) {
+async function getFilterDataController() {
     try {
-        if (filterDataController === null || flags.force) {
-            filterDataController = new FilterDataController(email);
-            if (flags.readState) {
-                if (verbose) {
-                    console.warn("reloading filterctl state");
-                }
-                await filterDataController.readState();
-            }
-        }
-        if (flags.purgePending) {
-            await filterDataController.purgePending();
-        }
+        let filterDataController = new FilterDataController(email);
+        await filterDataController.readState();
         return filterDataController;
     } catch (e) {
         console.error(e);
@@ -96,6 +84,14 @@ async function onStartup() {
 async function onInstalled() {
     try {
         await initialize("installed");
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function onUpdateAvailable(details) {
+    try {
+        console.warn("onUpdateAvailable:", details);
     } catch (e) {
         console.error(e);
     }
@@ -122,10 +118,10 @@ async function contentTabTitle(name) {
         let key = undefined;
         switch (name) {
             case "editor":
-                key = config.key.editorTitle;
+                key = config.local.key.editorTitle;
                 break;
             case "rescan":
-                key = config.key.rescanTitle;
+                key = config.local.key.rescanTitle;
                 break;
             default:
                 throw new Error("unknown content tab name:" + name);
@@ -165,7 +161,7 @@ async function focusEditorWindow() {
         }
 
         // divert to options page if not approved
-        if (!approved) {
+        if (!(await isApproved())) {
             await messenger.runtime.openOptionsPage();
             return;
         }
@@ -277,7 +273,8 @@ async function onCommand(command, tab) {
         if (verbose) {
             console.debug("onCommand:", command, tab);
         }
-        if (!approved) {
+
+        if (!(await isApproved())) {
             await messenger.runtime.openOptionsPage();
             return;
         }
@@ -524,30 +521,42 @@ function getMenuHandler(handlerName) {
     }
 }
 
+async function getMenus() {
+    try {
+        let menus = await config.session.get(config.session.key.menuConfig);
+        if (typeof menus !== "object" || Array.from(Object.keys(menus)).length === 0) {
+            menus = await initMenus();
+        }
+        return menus;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
 // reset menu configuration from menu config data structure
 async function initMenus() {
     try {
-        menus = {};
+        let menus = {};
         await messenger.menus.removeAll();
-        if (approved) {
+        if (await isApproved()) {
             for (let [mid, config] of Object.entries(menuConfig)) {
                 if (config.noInit !== true) {
-                    await createMenu(mid, config);
+                    await createMenu(menus, mid, config);
                 }
             }
         }
         await messenger.menus.refresh();
 
         // save menu config in session storage
-        await config.session.set(config.key.menuConfig, menus);
+        await config.session.set(config.session.key.menuConfig, menus);
         if (verbose) {
             console.log("saved menu config:", menus);
         }
 
         // FIXME: maybe we don't need to update the messaage display action here
         // because it will be done on onDisplayedFolderChanged and/or onSelectedMessagesChanged
-        const accountId = await selectedMessagesAccountId();
-        await updateMessageDisplayAction(accountId);
+        // const accountId = await selectedMessagesAccountId();
+        // await updateMessageDisplayAction(accountId);
     } catch (e) {
         console.error(e);
     }
@@ -575,14 +584,15 @@ async function selectedMessagesAccountId() {
 
 async function updateMessageDisplayAction(accountId = undefined, book = undefined) {
     try {
-        // if accountd specified, ensure it is valid
+        // if accountId specified, ensure it is valid
         if (accountId !== undefined) {
             if (!(await isAccount(accountId))) {
                 accountId = undefined;
                 book = undefined;
             }
         }
-        messageDisplayActionAccountId = accountId;
+        await config.session.set(config.session.key.messageDisplayActionAccountId, accountId);
+        const approved = await isApproved();
         if (approved && accountId !== undefined) {
             if (book === undefined) {
                 book = await getAddSenderTarget(accountId);
@@ -598,7 +608,7 @@ async function updateMessageDisplayAction(accountId = undefined, book = undefine
     }
 }
 
-async function createMenu(mid, config) {
+async function createMenu(menus, mid, config) {
     try {
         if (verbose) {
             console.debug("createMenu:", mid, config);
@@ -635,7 +645,7 @@ async function createMenu(mid, config) {
         }
         if (Object.hasOwn(created, "onCreated")) {
             const handler = getMenuHandler(created.onCreated);
-            await handler(created);
+            await handler(menus, created);
         }
     } catch (e) {
         console.error(e);
@@ -651,10 +661,7 @@ async function createMenu(mid, config) {
 async function onMenuClicked(info, tab) {
     try {
         if (verbose) {
-            console.debug("onMenuClicked:", { info, tab, approved, loaded });
-        }
-        if (!approved) {
-            await messenger.runtime.openOptionsPage();
+            console.debug("onMenuClicked:", { info, tab });
         }
         if (!Object.hasOwn(info, "menuItemId")) {
             console.error("missing menuItemId:", info, tab);
@@ -673,15 +680,8 @@ async function onMenuClicked(info, tab) {
 async function onMenuShown(info, tab) {
     try {
         if (verbose) {
-            console.debug("onMenuShown:", { info, tab, approved, loaded, hasInitialized });
+            console.debug("onMenuShown:", { info, tab });
         }
-        if (!approved) {
-            return;
-        }
-        if (!hasInitialized) {
-            console.warn("onMenuShown before initialize");
-        }
-
         if (!Object.hasOwn(info, "menuIds")) {
             console.error("missing menuIds:", info, tab);
             throw new Error("missing menuIds");
@@ -698,11 +698,12 @@ async function onMenuShown(info, tab) {
 
 async function onMenuEvent(menuEvent, mids, info, tab) {
     try {
+        let menus = await getMenus();
         console.assert(Array.isArray(mids));
         let refresh = false;
         let detail = await menuEventDetail(info, tab);
         if (menuEvent === "onShown" && detail.setVisibility) {
-            await setMenuVisibility(detail.accountId, detail.context);
+            await setMenuVisibility(menus, detail.accountId, detail.context);
             refresh = true;
         }
         for (let mid of mids) {
@@ -725,7 +726,7 @@ async function onMenuEvent(menuEvent, mids, info, tab) {
     }
 }
 
-async function setMenuVisibility(accountId, context) {
+async function setMenuVisibility(menus, accountId, context) {
     try {
         if (verbose) {
             console.debug("setMenuVisibility:", accountId, context);
@@ -807,7 +808,7 @@ async function menuEventDetail(info, tab) {
 }
 
 // add filterbook submenus
-async function onMenuCreatedAddBooks(created) {
+async function onMenuCreatedAddBooks(menus, created) {
     try {
         if (verbose) {
             console.debug("onMenuCreatedAddBooks:", created);
@@ -825,7 +826,7 @@ async function onMenuCreatedAddBooks(created) {
                 config.book = bookName;
                 config.properties.title = bookName;
                 config.properties.parentId = created.id;
-                await createMenu(id, config);
+                await createMenu(menus, id, config);
             }
         }
         return true;
@@ -872,11 +873,8 @@ async function onMenuClickedSelectBook(target, detail) {
             console.log("onMenuClickedSelectBook:", target.id, {
                 target,
                 detail,
-                messageDisplayActionAccountId,
-                displayedFolderAccountId,
             });
         }
-        console.assert(target.accountId === messageDisplayActionAccountId);
         await setAddSenderTarget(target.accountId, target.book);
     } catch (e) {
         console.error(e);
@@ -900,8 +898,6 @@ async function onMenuRescanFolderClicked(target, detail) {
             console.log("onMenuRescanFolderClicked:", target.id, {
                 target,
                 detail,
-                messageDisplayActionAccountId,
-                displayedFolderAccountId,
             });
         }
         for (const folder of detail.info.selectedFolders) {
@@ -920,8 +916,6 @@ async function onMenuRescanMessagesClicked(target, detail) {
             console.log("onMenuRescanMessagesClicked:", target.id, {
                 target,
                 detail,
-                messageDisplayActionAccountId,
-                displayedFolderAccountId,
             });
         }
         let account = await getAccount(detail.info.displayedFolder.accountId);
@@ -970,7 +964,7 @@ async function requestRescan(account, path, messageIds) {
 async function getAddSenderTarget(accountId) {
     try {
         if (await isAccount(accountId)) {
-            let targets = await config.local.get(config.key.addSenderTarget);
+            let targets = await config.local.get(config.local.key.addSenderTarget);
             if (targets !== undefined) {
                 if (Object.hasOwn(targets, accountId)) {
                     return targets[accountId];
@@ -1000,31 +994,32 @@ async function getBookNames(accountId) {
     }
 }
 
-// write add sender target book name to config
 async function setAddSenderTarget(accountId, bookName) {
     try {
         // side effect: throw error if invalid id
         await getAccount(accountId);
-        let targets = await config.local.get(config.key.addSenderTarget);
+        let targets = await config.local.get(config.local.key.addSenderTarget);
         if (targets === undefined) {
             targets = {};
         }
         if (bookName !== targets[accountId]) {
             targets[accountId] = bookName;
-            await config.local.set(config.key.addSenderTarget, targets);
+            await config.local.set(config.local.key.addSenderTarget, targets);
             if (verbose) {
                 console.debug("changed addSenderTarget:", accountId, bookName, targets);
             }
-            let response = await sendMessage({
+
+            // inform editor the addSender Target has Changed
+            await sendMessage({
                 id: "addSenderTargetChanged",
                 accountId: accountId,
                 bookName: bookName,
                 dst: "editor",
             });
-            if (verbose) {
-                console.log("background: sent addSenderTargetChanged, got:", response);
-            }
-            if (messageDisplayActionAccountId !== undefined && messageDisplayActionAccountId === accountId) {
+
+            // update the message display action button
+            let messageDisplayActionAccountId = await config.session.get(config.session.key.messageDisplayActionAccountId);
+            if (messageDisplayActionAccountId === accountId) {
                 await updateMessageDisplayAction(accountId, bookName);
             }
         }
@@ -1179,22 +1174,26 @@ async function handleCacheControl(message) {
         var result;
         switch (message.command) {
             case "clear":
-                await config.local.remove(config.key.filterctlState);
+                await config.local.remove(config.local.key.filterctlState);
                 result = "cleared";
                 break;
             case "enable":
-                config.local.setBool(config.key.filterctlCacheEnabled, true);
+                if (config.local.getBool(config.local.key.filterctlCacheEnabled, true)) {
+                    // if already enabled, return without changing filterctl cache
+                    return "enabled";
+                }
+                config.local.setBool(config.local.key.filterctlCacheEnabled, true);
                 result = "enabled";
                 break;
             case "disable":
-                config.local.setBool(config.key.filterctlCacheEnabled, false);
-                await getFilterDataController({ force: true });
+                config.local.setBool(config.local.key.filterctlCacheEnabled, false);
                 result = "disabled";
                 break;
             default:
                 throw new Error("unknown cacheControl command: " + message.command);
         }
-        await getFilterDataController({ force: true, readState: true, purgePending: true });
+        const filterctl = await getFilterDataController({ forceReload: true, readState: false, purgePending: true });
+        await filterctl.resetState();
         return result;
     } catch (e) {
         console.error(e);
@@ -1452,6 +1451,7 @@ async function handleSendCommand(message) {
     }
 }
 
+/*
 async function onDisplayedFolderChanged(tab, displayedFolder) {
     try {
         if (verbose) {
@@ -1466,6 +1466,7 @@ async function onDisplayedFolderChanged(tab, displayedFolder) {
         console.error(e);
     }
 }
+*/
 
 async function onSelectedMessagesChanged(tab, selectedMessages) {
     try {
@@ -1487,30 +1488,15 @@ async function onSelectedMessagesChanged(tab, selectedMessages) {
     }
 }
 
-async function onLoad() {
+async function autoOpen() {
     try {
-        loaded = true;
-        approved = await config.local.getBool(config.key.optInApproved);
-        hasInitialized = await config.session.getBool(config.key.hasInitialized);
-
-        console.warn("onLoad:", { approved, "hasInitialized[from session storage]": hasInitialized });
-
-        if (approved) {
-            let menuConfig = await config.session.get(config.key.menuConfig);
-            if (menuConfig !== undefined) {
-                // we're awakening from suspension, so restore the menu config
-                menus = menuConfig;
-            } else {
-                // menus haven't been intialized, so do it
-                // FIXME: is this unfininshed? should we call menuInit
-            }
-        }
-
-        if (await config.local.getBool(config.key.reloadAutoOptions)) {
-            await config.local.remove(config.key.reloadAutoOptions);
+        let autoOptions = await config.session.getBool(config.session.key.autoOpenOptions);
+        await config.session.remove(config.session.key.autoOpenOptions);
+        let autoEditor = await config.session.getBool(config.session.key.autoOpenEditor);
+        await config.session.remove(config.session.key.autoOpenEditor);
+        if (autoOptions === true) {
             await messenger.runtime.openOptionsPage();
-        } else if (await config.local.getBool(config.key.reloadAutoEditor)) {
-            await config.local.remove(config.key.reloadAutoEditor);
+        } else if (autoEditor === true) {
             await focusEditorWindow();
         }
     } catch (e) {
@@ -1518,9 +1504,10 @@ async function onLoad() {
     }
 }
 
-async function onUpdateAvailable(details) {
+async function onLoad() {
     try {
-        console.warn("onUpdateAvailable:", details);
+        console.warn("onLoad");
+        await autoOpen();
     } catch (e) {
         console.error(e);
     }
@@ -1539,16 +1526,13 @@ messenger.runtime.onSuspendCanceled.addListener(onSuspendCanceled);
 messenger.runtime.onUpdateAvailable.addListener(onUpdateAvailable);
 
 messenger.runtime.onMessage.addListener(onMessage);
-
 messenger.menus.onClicked.addListener(onMenuClicked);
 messenger.menus.onShown.addListener(onMenuShown);
 
-//messenger.messageDisplay.onMessagesDisplayed.addListener(onMessagesDisplayed);
-messenger.mailTabs.onDisplayedFolderChanged.addListener(onDisplayedFolderChanged);
+//messenger.mailTabs.onDisplayedFolderChanged.addListener(onDisplayedFolderChanged);
 messenger.mailTabs.onSelectedMessagesChanged.addListener(onSelectedMessagesChanged);
 
 messenger.commands.onCommand.addListener(onCommand);
-
 messenger.messageDisplayAction.onClicked.addListener(onMessageDisplayActionClicked);
 messenger.action.onClicked.addListener(onActionButtonClicked);
 

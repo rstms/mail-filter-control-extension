@@ -319,7 +319,7 @@ async function onTabShow(sender) {
 async function setAdvancedTabVisible(visible = undefined) {
     try {
         if (visible === undefined) {
-            visible = await config.local.getBool(config.key.advancedTabVisible);
+            visible = await config.local.getBool(config.local.key.advancedTabVisible);
         }
         controls.advancedTab.hidden = !visible;
         controls.advancedTabLink.hidden = !visible;
@@ -341,12 +341,12 @@ async function populateUsageControls() {
             tab.advanced.setStatus("Updating commands...");
             tab.help.controls.helpText.innerHTML = "Updating help...";
             usagePopulated = true;
-            let response = await config.local.get(config.key.usageResponse);
+            let response = await config.local.get(config.local.key.usageResponse);
             if (response === undefined) {
                 response = await requestUsage();
                 if (response !== undefined) {
-                    await config.local.set(config.key.usageResponse, response);
-                    let readback = await config.local.get(config.key.usageResponse);
+                    await config.local.set(config.local.key.usageResponse, response);
+                    let readback = await config.local.get(config.local.key.usageResponse);
                     console.assert(!differ(response, readback), "cached usageResponse readback differs");
                 }
             }

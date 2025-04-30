@@ -11,29 +11,34 @@ const READBACK_TRIES = 5;
 const DEFAULTS = {
     editorTitle: "Mail Filter Control",
     rescanTitle: "Active Rescans",
+    preferredTheme: "auto",
     optInApproved: false,
+    domain: {},
     advancedTabVisible: false,
     autoDelete: true,
     filterctlCacheEnabled: true,
     autoClearConsole: false,
     minimizeCompose: true,
     backgroundSend: true,
-    preferredTheme: "auto",
-    domain: {},
 };
 
-function validateKey(key) {
-    if (!Object.keys(config.key).includes(key)) {
-        throw new Error("config key '" + key + "' not one of: [" + String(Object.keys(config.key).join(", ")) + "]");
-    }
-}
-
 class ConfigBase {
-    constructor(storage, name) {
+    constructor(storage, name, keys) {
         this.storage = storage;
         this.name = name;
         this.locked = false;
         this.waiting = [];
+        this.key = {};
+        for (const key of keys) {
+            this.key[key] = key;
+        }
+    }
+
+    validateKey(key) {
+        if (!Object.keys(this.key).includes(key)) {
+            let keys = String(Object.keys(this.key).join(", "));
+            throw new Error(`${this.name} config key '${key}' not one of [${keys}]`);
+        }
     }
 
     async lock() {
@@ -111,7 +116,7 @@ class ConfigBase {
 
     async get(key, useDefaults = true) {
         try {
-            validateKey(key);
+            this.validateKey(key);
             await this.lock();
             const values = await this.storage.get([key]);
             var value = values[key];
@@ -186,7 +191,7 @@ class ConfigBase {
 
     async set(key, value) {
         try {
-            validateKey(key);
+            this.validateKey(key);
             await this.lock();
             if (verbose) {
                 console.debug("set:", this.name, key, value);
@@ -204,7 +209,7 @@ class ConfigBase {
 
     async remove(key) {
         try {
-            validateKey(key);
+            this.validateKey(key);
             await this.lock();
             if (verbose) {
                 console.debug("remove:", this.name, key);
@@ -219,45 +224,59 @@ class ConfigBase {
     }
 }
 
+//persistent while extension installed
 class ConfigLocal extends ConfigBase {
     constructor() {
-        super(messenger.storage.local, "local");
+        super(messenger.storage.local, "local", [
+            // user configurable options
+            "optInApproved",
+            "domain",
+            "autoDelete",
+            "advancedTabVisible",
+            "minimizeCompose",
+            "backgroundSend",
+            "filterctlCacheEnabled",
+
+            // response data caches
+            "usageResponse",
+            "filterctlState",
+
+            // internal state
+            "addSenderTarget",
+            "selectedAccount",
+
+            // internal config
+            "autoClearConsole",
+            "emailResponseTimeout",
+            "editorTitle",
+            "rescanTitle",
+            "preferredTheme",
+        ]);
     }
 }
 
+// application execution lifetime
 class ConfigSession extends ConfigBase {
     constructor() {
-        super(messenger.storage.session, "session");
+        super(messenger.storage.session, "session", [
+            // background page state
+            "initialized",
+            "menuConfig",
+            "messageDisplayActionAccountId",
+
+            // rescan status
+            "activeRescans",
+
+            // auto-open on reload flags
+            "autoOpenOptions",
+            "autoOpenEditor",
+        ]);
     }
 }
 
 export const config = {
     local: new ConfigLocal(),
     session: new ConfigSession(),
-    key: {
-        autoDelete: "autoDelete",
-        advancedTabVisible: "advancedTabVisible",
-        minimizeCompose: "minimizeCompose",
-        backgroundSend: "backgroundSend",
-        filterctlCacheEnabled: "filterctlCacheEnabled",
-        filterctlState: "filterctlState",
-        emailResponseTimeout: "emailResponseTimeout",
-        preferredTheme: "preferredTheme",
-        optInApproved: "optInApproved",
-        editorTitle: "editorTitle",
-        rescanTitle: "rescanTitle",
-        addSenderTarget: "addSenderTarget",
-        autoClearConsole: "autoClearConsole",
-        domain: "domain",
-        selectedAccount: "selectedAccount",
-        usageResponse: "usageResponse",
-        reloadAutoOptions: "reloadAutoOptions",
-        reloadAutoEditor: "reloadAutoEditor",
-        counter: "counter",
-        menuConfig: "menuConfig",
-        activeRescans: "activeRescans",
-        hasInitialized: "hasInitialized",
-    },
 };
 
 export async function updateActiveRescans(rescanResponse, prune = false) {
@@ -266,7 +285,7 @@ export async function updateActiveRescans(rescanResponse, prune = false) {
             console.error("invalid rescanResponse.status:", rescanResponse);
             throw new Error("invalid rescanResponse status");
         }
-        let activeRescans = await config.session.get(config.key.activeRescans);
+        let activeRescans = await config.session.get(config.session.key.activeRescans);
         if (typeof activeRescans !== "object") {
             activeRescans = {};
         }
@@ -278,7 +297,7 @@ export async function updateActiveRescans(rescanResponse, prune = false) {
         if (prune) {
             activeRescans = updated;
         }
-        await config.session.set(config.key.activeRescans, activeRescans);
+        await config.session.set(config.session.key.activeRescans, activeRescans);
     } catch (e) {
         console.error(e);
     }

@@ -156,12 +156,28 @@ class EmailController {
             this.pendingResponses = new AsyncMap(); // unmatched received responses	    key: requestId  value: response body data
             this.processedMessages = new AsyncMap(); // messages already processed	    key: Message-ID value: requestId
             this.resolvedRequests = new AsyncMap(); // requests already resolved	    key: requestID  value: bool
-            this.flags = new AsyncMap();
             this.autoDeleteState = new AsyncMap();
 
             if (verbose) {
                 console.debug("New EmailController:", moduleCID, this.CID);
             }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async hasPendingActivity() {
+        try {
+            if ((await this.pendingRequests.size()) > 0) {
+                return true;
+            }
+            if ((await this.pendingResponses.size()) > 0) {
+                return true;
+            }
+            if ((await this.autoDeleteState.size()) > 0) {
+                return true;
+            }
+            return false;
         } catch (e) {
             console.error(e);
         }
@@ -248,11 +264,13 @@ class EmailController {
 
     async checkPending() {
         try {
-            const requestCount = await this.pendingRequests.size();
             const responseCount = await this.pendingResponses.size();
 
-            if (verbose && logQueue) {
-                if (requestCount > 0 || responseCount > 0) {
+            // if there are outstanding requests or responses
+            if (await this.hasPendingActivity()) {
+                // keep the background page from suspending while we have pending activity
+                await messenger.runtime.getBackgroundPage();
+                if (verbose && logQueue) {
                     await this.logQueueState("checkPending:");
                 }
             }
@@ -297,25 +315,23 @@ class EmailController {
                 }
             }
 
-            if (await config.local.getBool(config.key.autoDelete)) {
-                const completedAutoDeletes = await this.autoDeleteState.scan((id, state) => {
-                    return this.processPendingAutoDelete(id, state);
-                });
-                for (const [id, state] of completedAutoDeletes.entries()) {
-                    if (verbose) {
-                        console.debug("autoDelete completed:", id, state);
-                    }
+            // process autoDeletes
+            const completedAutoDeletes = await this.autoDeleteState.scan((id, state) => {
+                return this.processPendingAutoDelete(id, state);
+            });
+            for (const [id, state] of completedAutoDeletes.entries()) {
+                if (verbose) {
+                    console.debug("autoDelete completed:", id, state);
                 }
             }
 
+            // expire autoDeletes
             const expiredAutoDeletes = await this.autoDeleteState.expire(AUTO_DELETE_EXPIRE_SECONDS);
             for (const [id, state] of expiredAutoDeletes.entries()) {
                 if (verbose) {
                     console.debug("autoDelete expired:", id, state);
                 }
             }
-
-            // FIXME: check here for expired this.resolvedRequests and this.processedMessages on a long timeout
         } catch (e) {
             console.error(e);
         }
@@ -323,7 +339,9 @@ class EmailController {
 
     async setAutoDeleteState(accountId, folder, state) {
         try {
-            await this.autoDeleteState.set(accountId + "_" + folder, { accountId, folder, state });
+            if (await config.local.getBool(config.local.key.autoDelete)) {
+                await this.autoDeleteState.set(accountId + "_" + folder, { accountId, folder, state });
+            }
         } catch (e) {
             console.error(e);
         }
@@ -443,7 +461,7 @@ class EmailController {
             if (verbose) {
                 console.debug("sendMessage returned:", sent);
             }
-            if (await config.local.getBool(config.key.autoDelete)) {
+            if (await config.local.getBool(config.local.key.autoDelete)) {
                 for (const message of sent.messages) {
                     await this.deleteMessage(message);
                 }
@@ -503,7 +521,7 @@ class EmailController {
             if (verbose) {
                 console.debug("autoDeleteScan:", accountId, folderType);
             }
-            if (!(await config.local.getBool(config.key.autoDelete))) {
+            if (!(await config.local.getBool(config.local.key.autoDelete))) {
                 return;
             }
             let deletedCount = 0;
@@ -740,9 +758,9 @@ class EmailController {
             if (verbose) {
                 console.log("email.sendRequest:", { accountId, command, body, timeout });
             }
-            const autoDelete = await config.local.getBool(config.key.autoDelete);
-            const minimizeCompose = await config.local.getBool(config.key.minimizeCompose);
-            const backgroundSend = await config.local.getBool(config.key.backgroundSend);
+            const autoDelete = await config.local.getBool(config.local.key.autoDelete);
+            const minimizeCompose = await config.local.getBool(config.local.key.minimizeCompose);
+            const backgroundSend = await config.local.getBool(config.local.key.backgroundSend);
             const account = await getAccount(accountId);
             let request = new EmailRequest(this, autoDelete, minimizeCompose, backgroundSend);
             var ret = await request.send(account, command, body, timeout);
@@ -770,15 +788,17 @@ async function receiver(folder, messageList) {
     await email.receive(folder, messageList);
 }
 
-async function startup() {
+async function onLoad() {
+    console.warn("email loading");
     await email.startup();
     await messenger.messages.onNewMailReceived.addListener(receiver);
 }
 
-async function shutdown() {
+async function onBeforeUnload() {
+    console.warn("email unloading");
     await messenger.messages.onNewMailReceived.removeListener(receiver);
     await email.shutdown();
 }
 
-window.addEventListener("load", startup);
-window.addEventListener("beforeunload", shutdown);
+window.addEventListener("load", onLoad);
+window.addEventListener("beforeunload", onBeforeUnload);

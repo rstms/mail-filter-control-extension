@@ -5,7 +5,7 @@ import { config } from "./config.js";
 
 async function getStoredTheme() {
     try {
-        var theme = await config.local.get(config.key.preferredTheme);
+        var theme = await config.local.get(config.local.key.preferredTheme);
         //console.log("getStoredTheme storage get returned:", result);
         if (theme !== "dark" && theme !== "light") {
             theme = "auto";
@@ -20,7 +20,7 @@ async function getStoredTheme() {
 async function setStoredTheme(theme) {
     try {
         //console.log("setStoredTheme setting:", theme);
-        await config.local.set(config.key.preferredTheme, theme);
+        await config.local.set(config.local.key.preferredTheme, theme);
         //console.log("setStoredTheme set:", theme);
     } catch (e) {
         console.error(e);

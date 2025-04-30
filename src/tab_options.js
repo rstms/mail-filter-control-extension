@@ -59,11 +59,11 @@ export class OptionsTab {
 
     async populate() {
         try {
-            this.controls.autoDelete.checked = await config.local.getBool(config.key.autoDelete);
-            this.controls.advancedTabVisible.checked = await config.local.getBool(config.key.advancedTabVisible);
-            this.controls.minimizeCompose.checked = await config.local.getBool(config.key.minimizeCompose);
-            this.controls.backgroundSend.checked = await config.local.getBool(config.key.backgroundSend);
-            this.controls.cacheResponses.checked = await config.local.getBool(config.key.filterctlCacheEnabled);
+            this.controls.autoDelete.checked = await config.local.getBool(config.local.key.autoDelete);
+            this.controls.advancedTabVisible.checked = await config.local.getBool(config.local.key.advancedTabVisible);
+            this.controls.minimizeCompose.checked = await config.local.getBool(config.local.key.minimizeCompose);
+            this.controls.backgroundSend.checked = await config.local.getBool(config.local.key.backgroundSend);
+            this.controls.cacheResponses.checked = await config.local.getBool(config.local.key.filterctlCacheEnabled);
 
             await this.populateDomains();
         } catch (e) {
@@ -139,7 +139,6 @@ export class OptionsTab {
             if (differ(this.pendingDomains, domains)) {
                 await this.domains.setAll(this.pendingDomains);
                 await this.clearCache();
-                await config.local.setBool(config.key.reloadAutoEditor, true);
                 await messenger.runtime.reload();
             }
         } catch (e) {
@@ -161,7 +160,7 @@ export class OptionsTab {
 
     async onAutoDeleteChange() {
         try {
-            await config.local.setBool(config.key.autoDelete, this.controls.autoDelete.checked);
+            await config.local.setBool(config.local.key.autoDelete, this.controls.autoDelete.checked);
         } catch (e) {
             console.error(e);
         }
@@ -169,7 +168,7 @@ export class OptionsTab {
 
     async onShowAdvancedTabChange() {
         try {
-            await config.local.setBool(config.key.advancedTabVisible, this.controls.advancedTabVisible.checked);
+            await config.local.setBool(config.local.key.advancedTabVisible, this.controls.advancedTabVisible.checked);
         } catch (e) {
             console.error(e);
         }
@@ -177,7 +176,7 @@ export class OptionsTab {
 
     async onMinimizeComposeChange() {
         try {
-            await config.local.setBool(config.key.minimizeCompose, this.controls.minimizeCompose.checked);
+            await config.local.setBool(config.local.key.minimizeCompose, this.controls.minimizeCompose.checked);
         } catch (e) {
             console.error(e);
         }
@@ -185,7 +184,7 @@ export class OptionsTab {
 
     async onBackgroundSendChange() {
         try {
-            await config.local.setBool(config.key.backgroundSend, this.controls.backgroundSend.checked);
+            await config.local.setBool(config.local.key.backgroundSend, this.controls.backgroundSend.checked);
         } catch (e) {
             console.error(e);
         }
@@ -203,7 +202,7 @@ export class OptionsTab {
 
     async clearCache() {
         try {
-            await config.local.remove(config.key.filterctlState);
+            await config.local.remove(config.local.key.filterctlState);
         } catch (e) {
             console.error(e);
         }
@@ -212,7 +211,7 @@ export class OptionsTab {
     async onClearCacheClick() {
         try {
             await this.clearCache();
-            await config.local.setBool(config.key.reloadAutoEditor, true);
+            await config.session.setBool(config.session.key.autoOpenEditor, true);
             await messenger.runtime.reload();
         } catch (e) {
             console.error(e);
@@ -222,7 +221,6 @@ export class OptionsTab {
     async onCacheResponsesChange() {
         try {
             let enabled = this.controls.cacheResponses.checked;
-            await config.local.setBool(config.key.filterctlCacheEnabled, enabled);
             const command = enabled ? "enable" : "disable";
             await this.sendMessage({ id: "cacheControl", command: command });
         } catch (e) {

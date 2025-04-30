@@ -61,13 +61,13 @@ export async function getAccount(accountId) {
 export async function getSelectedAccount() {
     try {
         const accounts = await getAccounts();
-        const selectedId = await config.local.get(config.key.selectedAccount);
+        const selectedId = await config.local.get(config.local.key.selectedAccount);
         if (selectedId !== undefined && Object.hasOwn(accounts, selectedId)) {
             return accounts[selectedId];
         }
         for (const account of Object.values(accounts)) {
             console.warn(`selected account reset to ${account.id}`);
-            await config.local.set(config.key.selectedAccount, account.id);
+            await config.local.set(config.local.key.selectedAccount, account.id);
             return account;
         }
         console.warn("no enabled account exists");
@@ -79,7 +79,7 @@ export async function getSelectedAccount() {
 export async function selectAccount(accountId) {
     try {
         const account = await getAccount(accountId);
-        await config.local.set(config.key.selectedAccount, account.id);
+        await config.local.set(config.local.key.selectedAccount, account.id);
     } catch (e) {
         console.error(e);
     }

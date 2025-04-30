@@ -93,7 +93,7 @@ function onDOMContentLoaded() {
 async function updateDisplay(rescans = undefined) {
     try {
         if (rescans === undefined) {
-            rescans = await config.session.get(config.key.activeRescans);
+            rescans = await config.session.get(config.session.key.activeRescans);
         }
         let rescansFound = false;
         let runningRescansFound = false;
@@ -297,7 +297,7 @@ async function sendMessage(message) {
 async function onLoad() {
     try {
         console.warn("rescan loading");
-        document.title = await config.local.get(config.key.rescanTitle);
+        document.title = await config.local.get(config.local.key.rescanTitle);
     } catch (e) {
         console.error(e);
     }
@@ -318,7 +318,7 @@ async function onStorageChanged(changes, areaName) {
             console.debug("storageChanged:", { changes, areaName });
         }
         if (areaName === "session") {
-            let rescanChanges = changes[config.key.activeRescans];
+            let rescanChanges = changes[config.session.key.activeRescans];
             if (rescanChanges !== undefined) {
                 await updateDisplay(rescanChanges.newValue);
             }

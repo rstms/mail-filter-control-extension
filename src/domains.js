@@ -28,7 +28,7 @@ export class Domains {
             }
 
             // read enabled domains from config
-            let configDomains = await config.local.get(config.key.domain);
+            let configDomains = await config.local.get(config.local.key.domain);
 
             // ensure the configDomains are a valid object
             if (typeof configDomains !== "object") {
@@ -62,7 +62,7 @@ export class Domains {
                 }
             }
             // update local storage domains
-            await config.local.set(config.key.domain, this.domains);
+            await config.local.set(config.local.key.domain, this.domains);
         } catch (e) {
             console.error(e);
         }

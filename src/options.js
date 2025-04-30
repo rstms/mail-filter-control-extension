@@ -14,8 +14,8 @@ async function saveOptions(sender) {
         await enableButton(checked);
         await config.local.reset();
         await config.session.reset();
-        await config.local.setBool(config.key.optInApproved, checked);
-        await config.local.setBool(config.key.reloadAutoOptions, true);
+        await config.local.setBool(config.local.key.optInApproved, checked);
+        await config.session.setBool(config.session.key.autoOpenOptions, true);
         await messenger.runtime.reload();
     } catch (e) {
         console.error(e);
@@ -24,10 +24,10 @@ async function saveOptions(sender) {
 
 async function restoreOptions() {
     try {
-        var checked = await config.local.getBool(config.key.optInApproved);
+        var checked = await config.local.getBool(config.local.key.optInApproved);
         document.querySelector(optInCheckboxId).checked = checked;
         await enableButton(checked);
-        await config.local.remove(config.key.reloadAutoOptions);
+        await config.session.remove(config.session.key.autoOpenOptions);
     } catch (e) {
         console.error(e);
     }
