@@ -188,7 +188,8 @@ async function updateDisplay(rescans = undefined) {
         if (rescansFound) {
             resetRefreshTimer(runningRescansFound ? ACTIVE_REFRESH_SECONDS : INACTIVE_REFRESH_SECONDS);
         } else if (errorIds.size === 0) {
-            window.close();
+            console.log("rescan would close:", { rescansFound, errorIds });
+            //window.close();
         }
     } catch (e) {
         console.error(e);
