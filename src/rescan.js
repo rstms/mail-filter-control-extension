@@ -18,6 +18,7 @@ let rescanTemplate = null;
 initThemeSwitcher();
 let reportedRescans = new Map();
 let errorIds = new Map();
+let rescanIds = new Map();
 
 function resetRefreshTimer(seconds = 0) {
     try {
@@ -113,6 +114,7 @@ async function updateDisplay(rescans = undefined) {
         for (const id of ids) {
             let rescan = rescans[id];
             rescansFound = true;
+            rescanIds.set(id, true);
             if (rescan.Running) {
                 runningRescansFound = true;
             }
@@ -166,7 +168,9 @@ async function updateDisplay(rescans = undefined) {
             }
             if (rescan.Errors.length > 0) {
                 errorIds.set(id, true);
-                console.log("setting errorIds:", { errorIds });
+                if (verbose) {
+                    console.log("setting errorIds:", { errorIds });
+                }
                 let content = "<details>\n";
                 content += "<summary>Error Details</summary>\n";
 
@@ -186,11 +190,18 @@ async function updateDisplay(rescans = undefined) {
 
         await removeExpiredElements(Array.from(Object.keys(rescans)));
 
-        if (rescansFound) {
-            resetRefreshTimer(runningRescansFound ? ACTIVE_REFRESH_SECONDS : INACTIVE_REFRESH_SECONDS);
-        } else if (errorIds.size === 0) {
-            console.log("rescan would close:", { rescansFound, errorIds });
-            //window.close();
+        if (rescanIds.size !== 0) {
+            // if a rescan has ever been displayed
+            if (rescansFound) {
+                // and any rescan is still present in the update, set the refresh timer
+                resetRefreshTimer(runningRescansFound ? ACTIVE_REFRESH_SECONDS : INACTIVE_REFRESH_SECONDS);
+            } else {
+                // no rescans are present in the update, so close if there are no errors
+                if (errorIds.size === 0) {
+                    console.log("closing:", { rescanIds, errorIds, rescansFound });
+                    window.close();
+                }
+            }
         }
     } catch (e) {
         console.error(e);
