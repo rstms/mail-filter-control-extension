@@ -1327,7 +1327,9 @@ async function handleSetClasses(message) {
         const filterctl = await getFilterDataController();
         const result = await filterctl.setClasses(message.accountId, message.classes);
         console.log("setClasses writeState:", result);
-        await filterctl.writeState();
+	if (result.valid) {
+	    await filterctl.writeState();
+	}
         return result;
     } catch (e) {
         console.error(e);
@@ -1342,6 +1344,7 @@ async function handleSendClasses(message) {
         if (verbose) {
             console.debug("sendClasses result:", result);
         }
+        console.log("sendClasses writeState:", result);
         await filterctl.writeState();
         return result;
     } catch (e) {
@@ -1357,6 +1360,7 @@ async function handleSendAllClasses(message) {
         if (verbose) {
             console.debug("sendAllClasses result:", result);
         }
+        console.log("sendAllClasses writeState:", result);
         await filterctl.writeState();
         return result;
     } catch (e) {
