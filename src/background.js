@@ -1327,9 +1327,9 @@ async function handleSetClasses(message) {
         const filterctl = await getFilterDataController();
         const result = await filterctl.setClasses(message.accountId, message.classes);
         console.log("setClasses writeState:", result);
-	if (result.valid) {
-	    await filterctl.writeState();
-	}
+        if (result.valid) {
+            await filterctl.writeState();
+        }
         return result;
     } catch (e) {
         console.error(e);
