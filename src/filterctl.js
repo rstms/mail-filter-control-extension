@@ -890,8 +890,8 @@ export class FilterDataController {
             for (const [accountId, renderable] of Object.entries(substate)) {
                 let dataset = await datasetFactory(type, renderable, accountId);
                 result[accountId] = dataset;
-		if (dataset.valid) {
-		    console.warn(`initialized invalid ${type} from storage`);
+                if (dataset.valid) {
+                    console.warn(`initialized invalid ${type} from storage`);
                     result[accountId] = dataset;
                 } else {
                     throw new Error(dataset.errors);
