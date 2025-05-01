@@ -896,7 +896,6 @@ export class FilterDataController {
                 } else {
                     throw new Error(dataset.errors);
                 }
-		*/
             }
             return result;
         } catch (e) {
