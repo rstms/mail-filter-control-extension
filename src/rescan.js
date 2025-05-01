@@ -166,6 +166,7 @@ async function updateDisplay(rescans = undefined) {
             }
             if (rescan.Errors.length > 0) {
                 errorIds.set(id, true);
+                console.log("setting errorIds:", { errorIds });
                 let content = "<details>\n";
                 content += "<summary>Error Details</summary>\n";
 
