@@ -187,7 +187,7 @@ async function updateDisplay(rescans = undefined) {
 
         if (rescansFound) {
             resetRefreshTimer(runningRescansFound ? ACTIVE_REFRESH_SECONDS : INACTIVE_REFRESH_SECONDS);
-        } else if (errorIds.size() === 0) {
+        } else if (errorIds.size === 0) {
             window.close();
         }
     } catch (e) {
