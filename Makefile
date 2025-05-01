@@ -91,6 +91,7 @@ release: all
 	mv release.zip dist/$(release_file)
 	@$(if $(update),gh release delete -y v$(version),)
 	gh release create v$(version) --notes "v$(version)"
+	gh release upload v$(version) updates.json
 	( cd dist && gh release upload v$(version) $(release_file) )
 
 clean:
