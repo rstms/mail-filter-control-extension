@@ -281,9 +281,9 @@ export const config = {
 
 export async function updateActiveRescans(rescanResponse, prune = false) {
     try {
-        if (typeof rescanResponse.Status !== "object") {
-            console.error("invalid rescanResponse.status:", rescanResponse);
-            throw new Error("invalid rescanResponse status");
+        if (typeof rescanResponse !== "object" || typeof rescanResponse.Status !== "object") {
+            console.error("invalid rescanResponse:", rescanResponse);
+            throw new Error("invalid rescanResponse");
         }
         let activeRescans = await config.session.get(config.session.key.activeRescans);
         if (typeof activeRescans !== "object") {

@@ -57,7 +57,7 @@ async function refreshRescanStatus() {
         for (const [accountId, account] of Object.entries(accounts)) {
             domainAccounts[accountDomain(account)] = accountId;
         }
-        let updated = {};
+        //let updated = {};
         for (const accountId of Object.values(domainAccounts)) {
             const response = await sendMessage({
                 id: "sendCommand",
@@ -65,13 +65,21 @@ async function refreshRescanStatus() {
                 command: "rescanstatus",
             });
             if (verbose) {
-                console.debug("rescan response:", response);
+                console.debug("rescanstatus response:", response);
             }
-            for (const [rescanId, rescanStatus] of Object.entries(response.Status)) {
-                updated[rescanId] = Object.assign({}, rescanStatus);
-            }
+            await updateActiveRescans(response, true);
+            /*
+	    if (typeof response !== "object" || typeof response.Status !== "object") {
+                console.error("unexpected rescanstatus response:", response);
+		resetRefreshTimer(ACTIVE_REFRESH_SECONDS);
+	    } else {
+		for (const [rescanId, rescanStatus] of Object.entries(response.Status)) {
+		    updated[rescanId] = Object.assign({}, rescanStatus);
+		}
+		await updateActiveRescans({ Status: updated }, true);
+	    }
+	    */
         }
-        await updateActiveRescans({ Status: updated }, true);
     } catch (e) {
         console.error(e);
     }
