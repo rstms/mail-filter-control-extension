@@ -12,6 +12,7 @@ export class HelpTab {
     constructor(sendMessage) {
         this.controls = {};
         this.sendMessage = sendMessage;
+        this.lines = [];
     }
 
     async populateCommandTable() {
@@ -34,7 +35,9 @@ export class HelpTab {
 
                 keyLabel.textContent = command.shortcut;
                 descriptionLabel.textContent = command.description;
-                console.log("row:", row.innerHTML);
+                if (verbose) {
+                    console.log("row:", row.innerHTML);
+                }
             }
             this.controls.table.hidden = false;
         } catch (e) {
@@ -44,29 +47,45 @@ export class HelpTab {
 
     async populate(helpLines) {
         try {
-            const manifest = await messenger.runtime.getManifest();
-
             await this.populateCommandTable();
             let text = "";
 
+            let manifest = await messenger.runtime.getManifest();
+            let details = false;
             for (let line of helpLines) {
                 if (verbose) {
                     console.log("line: ", "'" + line + "'");
                 }
-                line = line.replace(/^\s*/, "");
-                line = line.replace(/\s*$/, "");
-                line = line.replace(/^##+\s*/g, "<b>");
-                line = line.replace(/^#+\s*/g, "<br><br><b>");
-                line = line.replace(/\s*##+$/g, "  v" + manifest.version + "</b><br>");
-                line = line.replace(/\s*#+$/g, "</b><br>");
-                text += " " + line + "\n";
-                if (verbose) {
-                    console.log("line: ", "'" + line + "'");
-                    console.log("---");
+                line = line.trim();
+                if (line.length === 0) {
+                    continue;
+                }
+                if (line.startsWith("###")) {
+                    line = line.replace(/^#*\s*/g, "");
+                    line = line.replace(/\s*#*$/g, "");
+                    text = `<b>${line} v ${manifest.version}</b><br>\n`;
+                } else {
+                    if (line.startsWith("#")) {
+                        if (details) {
+                            text += "</details>\n";
+                            details = false;
+                        }
+                        line = line.replace(/^#+\s*/g, "");
+                        line = line.replace(/\s*#*$/g, "");
+                        text += `<br><details><summary><b>${line}</b></summary><br>\n`;
+                        details = true;
+                    } else {
+                        text += `${line}\n`;
+                    }
+                }
+                if (details) {
+                    text += "</detail>\n";
                 }
             }
             if (verbose) {
-                console.debug(text);
+                for (const t of text.split("\n")) {
+                    console.debug(t);
+                }
             }
             this.controls.helpText.innerHTML = text;
         } catch (e) {
