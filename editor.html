@@ -5,7 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no" />
         <title>Mail Filter Control</title>
         <link rel="stylesheet" href="assets/bootstrap/css/bootstrap.min.css?h=2a67f89353a72f7ee4500027c27d0b66" />
-        <link rel="stylesheet" href="assets/css/Source%20Sans%20Pro.css?h=b3e1e475eca3f0ab70c49a27288ebebf" />
+        <link rel="stylesheet" href="assets/css/Source%20Sans%20Pro.css?h=77b9d6e3c78f5bf77addb8ede3118aa0" />
         <link rel="stylesheet" href="chrome://messenger/skin/shared/common.css" />
         <script type="module" src="./src/editor.js"></script>
     </head>
@@ -82,9 +82,8 @@
                                             <table class="table table-sm">
                                                 <thead>
                                                     <tr>
-                                                        <th class="fw-normal">Class</th>
-                                                        <th class="fw-normal">Threshold</th>
-                                                        <th></th>
+                                                        <th class="fw-normal">Class Name</th>
+                                                        <th class="fw-normal" colspan="2">Maximum Spam Score</th>
                                                         <th></th>
                                                         <th></th>
                                                     </tr>
@@ -279,7 +278,7 @@
                                             </div>
                                             <div class="col-auto d-flex">
                                                 <label class="col-form-label" for="classes-save-button"
-                                                    >Upload Changes to Mail Filter Server</label
+                                                    >Upload pending changes to Mail Filter Server</label
                                                 >
                                             </div>
                                         </div>
@@ -295,7 +294,7 @@
                                             </div>
                                             <div class="col-auto d-flex">
                                                 <label class="col-form-label" for="classes-defaults-button"
-                                                    >Reset classes to default values</label
+                                                    >Reset this account's classes to default values</label
                                                 >
                                             </div>
                                         </div>
@@ -306,7 +305,7 @@
                                                     id="classes-refresh-button"
                                                     type="button"
                                                 >
-                                                    Revert Changes
+                                                    Revert&nbsp; Local Changes
                                                 </button>
                                             </div>
                                             <div class="col-auto d-flex">
@@ -322,7 +321,7 @@
                                                     id="classes-refresh-all-button"
                                                     type="button"
                                                 >
-                                                    Revert All Changes
+                                                    Revert All Local Changes
                                                 </button>
                                             </div>
                                             <div class="col-auto d-flex">
