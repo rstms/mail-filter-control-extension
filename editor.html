@@ -5,7 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no" />
         <title>Mail Filter Control</title>
         <link rel="stylesheet" href="assets/bootstrap/css/bootstrap.min.css?h=2a67f89353a72f7ee4500027c27d0b66" />
-        <link rel="stylesheet" href="assets/css/Source%20Sans%20Pro.css?h=c37d180f79aba730d4664c7663c10462" />
+        <link rel="stylesheet" href="assets/css/Source%20Sans%20Pro.css?h=b65d55a83f0158ff61b0264a88aaa1a7" />
         <link rel="stylesheet" href="chrome://messenger/skin/shared/common.css" />
         <script type="module" src="./src/editor.js"></script>
     </head>
@@ -78,7 +78,7 @@
                             <div class="row d-flex" id="table-grid-row">
                                 <div class="col-auto" id="table-grid-column">
                                     <div class="border rounded-0" id="level-table-div">
-                                        <div class="table-responsive d-inline-flex" id="class-table">
+                                        <div class="table-responsive" id="class-table">
                                             <table class="table table-sm">
                                                 <thead>
                                                     <tr>
@@ -91,16 +91,16 @@
                                                 </thead>
                                                 <tbody id="level-table-body">
                                                     <tr>
-                                                        <td>
-                                                            <input type="text" id="cell-class-input" inputmode="numeric" required="" />
-                                                        </td>
+                                                        <td><input type="text" id="cell-class-input" required="" /></td>
                                                         <td>
                                                             <input
-                                                                type="text"
+                                                                type="number"
                                                                 id="cell-score-input"
                                                                 required=""
-                                                                minlength="1"
                                                                 inputmode="numeric"
+                                                                min="-20"
+                                                                max="20"
+                                                                step=".1"
                                                             />
                                                         </td>
                                                         <td>
@@ -129,61 +129,133 @@
                                                         </td>
                                                     </tr>
                                                     <tr>
-                                                        <td>
-                                                            <input type="text" required="" minlength="1" pattern="[a-zA-Z0-9-_ ]*" />
-                                                        </td>
+                                                        <td><input type="text" id="cell-class-input-3" required="" /></td>
                                                         <td>
                                                             <input
-                                                                type="text"
+                                                                class="flex-grow-1"
+                                                                type="number"
+                                                                id="cell-score-input-3"
                                                                 required=""
-                                                                minlength="1"
                                                                 inputmode="numeric"
-                                                                pattern="[0-9\.-]*"
+                                                                min="-20"
+                                                                max="20"
+                                                                step=".1"
                                                             />
                                                         </td>
                                                         <td>
-                                                            <input class="form-range" type="range" min="-20.0" max="+20.0" step=".1" />
+                                                            <input
+                                                                class="form-range"
+                                                                type="range"
+                                                                id="cell-score-slider-3"
+                                                                min="-20.0"
+                                                                max="+20.0"
+                                                                step=".1"
+                                                            />
                                                         </td>
-                                                        <td><button class="btn btn-primary btn-sm" type="button">Delete</button></td>
-                                                        <td><button class="btn btn-primary btn-sm" type="button">+</button></td>
+                                                        <td>
+                                                            <button
+                                                                class="btn btn-primary btn-sm"
+                                                                id="cell-delete-button-3"
+                                                                type="button"
+                                                            >
+                                                                Delete
+                                                            </button>
+                                                        </td>
+                                                        <td>
+                                                            <button
+                                                                class="btn btn-primary btn-sm"
+                                                                id="cell-add-button-3"
+                                                                type="button"
+                                                            >
+                                                                +
+                                                            </button>
+                                                        </td>
                                                     </tr>
                                                     <tr>
-                                                        <td>
-                                                            <input type="text" required="" minlength="1" pattern="[a-zA-Z0-9-_ ]*" />
-                                                        </td>
+                                                        <td><input type="text" id="cell-class-input-2" required="" /></td>
                                                         <td>
                                                             <input
-                                                                type="text"
+                                                                class="flex-grow-1"
+                                                                type="number"
+                                                                id="cell-score-input-2"
                                                                 required=""
-                                                                minlength="1"
                                                                 inputmode="numeric"
-                                                                pattern="[0-9\.-]*"
+                                                                min="-20"
+                                                                max="20"
+                                                                step=".1"
                                                             />
                                                         </td>
                                                         <td>
-                                                            <input class="form-range" type="range" min="-20.0" max="+20.0" step=".1" />
+                                                            <input
+                                                                class="form-range"
+                                                                type="range"
+                                                                id="cell-score-slider-2"
+                                                                min="-20.0"
+                                                                max="+20.0"
+                                                                step=".1"
+                                                            />
                                                         </td>
-                                                        <td><button class="btn btn-primary btn-sm" type="button">Delete</button></td>
-                                                        <td><button class="btn btn-primary btn-sm" type="button">+</button></td>
+                                                        <td>
+                                                            <button
+                                                                class="btn btn-primary btn-sm"
+                                                                id="cell-delete-button-2"
+                                                                type="button"
+                                                            >
+                                                                Delete
+                                                            </button>
+                                                        </td>
+                                                        <td>
+                                                            <button
+                                                                class="btn btn-primary btn-sm"
+                                                                id="cell-add-button-2"
+                                                                type="button"
+                                                            >
+                                                                +
+                                                            </button>
+                                                        </td>
                                                     </tr>
                                                     <tr>
-                                                        <td>
-                                                            <input type="text" required="" minlength="1" pattern="[a-zA-Z0-9-_ ]*" />
-                                                        </td>
+                                                        <td><input type="text" id="cell-class-input-1" required="" /></td>
                                                         <td>
                                                             <input
-                                                                type="text"
+                                                                class="flex-grow-1"
+                                                                type="number"
+                                                                id="cell-score-input-1"
                                                                 required=""
-                                                                minlength="1"
                                                                 inputmode="numeric"
-                                                                pattern="[0-9\.-]*"
+                                                                min="-20"
+                                                                max="20"
+                                                                step=".1"
                                                             />
                                                         </td>
                                                         <td>
-                                                            <input class="form-range" type="range" min="-20.0" max="+20.0" step=".1" />
+                                                            <input
+                                                                class="form-range"
+                                                                type="range"
+                                                                id="cell-score-slider-1"
+                                                                min="-20.0"
+                                                                max="+20.0"
+                                                                step=".1"
+                                                            />
                                                         </td>
-                                                        <td><button class="btn btn-primary btn-sm" type="button">Delete</button></td>
-                                                        <td><button class="btn btn-primary btn-sm" type="button">+</button></td>
+                                                        <td>
+                                                            <button
+                                                                class="btn btn-primary btn-sm"
+                                                                id="cell-delete-button-1"
+                                                                type="button"
+                                                            >
+                                                                Delete
+                                                            </button>
+                                                        </td>
+                                                        <td>
+                                                            <button
+                                                                class="btn btn-primary btn-sm"
+                                                                id="cell-add-button-1"
+                                                                type="button"
+                                                            >
+                                                                +
+                                                            </button>
+                                                        </td>
                                                     </tr>
                                                 </tbody>
                                             </table>
