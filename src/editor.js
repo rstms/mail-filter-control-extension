@@ -35,6 +35,7 @@ let tab = {
     }),
     books: new BooksTab(disableEditorControl, sendMessage, {
         ConnectionChanged: onBooksConnectionChanged,
+        InputKeypress: onBooksInputKeypress,
     }),
     options: new OptionsTab(sendMessage, { DomainCheckboxChange: onOptionsDomainCheckboxChange }),
     advanced: new AdvancedTab(sendMessage),
@@ -713,6 +714,14 @@ async function onBooksConnectionChanged(sender) {
     }
 }
 
+async function onBooksInputKeypress(sender) {
+    try {
+        await tab.books.onInputKeypress(sender);
+    } catch (e) {
+        console.error(e);
+    }
+}
+
 function onMessage(message, sender) {
     try {
         if (verbose) {
@@ -792,6 +801,7 @@ addTabControl(tab.books, "addressesMenu", "books-addresses-menu");
 addTabControl(tab.books, "addInput", "books-add-input", "keyup", (e) => {
     tab.books.onAddInputKeyup(e);
 });
+
 addTabControl(tab.books, "addButton", "books-add-button", "click", () => {
     tab.books.onAddClick();
 });
@@ -799,6 +809,7 @@ addTabControl(tab.books, "addButton", "books-add-button", "click", () => {
 addTabControl(tab.books, "deleteInput", "books-delete-input", "keyup", (e) => {
     tab.books.onDeleteInputKeyup(e);
 });
+
 addTabControl(tab.books, "deleteButton", "books-delete-button", "click", () => {
     tab.books.onDeleteClick();
 });

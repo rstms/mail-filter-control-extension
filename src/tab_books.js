@@ -221,6 +221,18 @@ export class BooksTab {
         }
     }
 
+    enableConnectionSwitches(enabled) {
+        try {
+            for (const element of document.getElementsByClassName("books-connection-switch")) {
+                element.disabled = !enabled;
+            }
+            this.controls.scanButton.disabled = !enabled;
+            this.controls.disconnectButton.disabled = !enabled;
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
     enableAddButton(enabled = undefined) {
         try {
             if (enabled !== false) {
@@ -271,6 +283,8 @@ export class BooksTab {
             }
             this.controls.addButton.disabled = true;
             this.controls.deleteButton.disabled = true;
+            this.controls.addInput.addEventListener("keypress", this.handlers.InputKeypress);
+            this.controls.deleteInput.addEventListener("keypress", this.handlers.InputKeypress);
             this.initialized = true;
         } catch (e) {
             console.error(e);
@@ -390,6 +404,7 @@ export class BooksTab {
                 return;
             }
 
+            this.enableConnectionSwitches(false);
             if (force) {
                 this.controls.tableBody.innerHTML = "<tr><td>scanning address book connections...</td></tr>";
                 await this.scanConnectedBooks(force);
@@ -433,10 +448,13 @@ export class BooksTab {
                             check.checked = cxn.connected;
                             check.setAttribute("data-cxn-uuid", cxn.uuid);
                             check.addEventListener("click", this.handlers.ConnectionChanged);
+                            check.classList.add("books-connection-switch");
+                            check.disabled = true;
                             break;
                     }
                 }
             }
+            this.enableConnectionSwitches(true);
         } catch (e) {
             console.error(e);
         }
@@ -535,6 +553,8 @@ export class BooksTab {
                 this.connectedBooks[accountId] = [];
             }
 
+            this.enableConnectionSwitches(false);
+
             this.setStatus("Scanning Address Book CardDAV connections...");
             if (verbose) {
                 console.debug("calling cardDAV.connected...");
@@ -628,8 +648,6 @@ export class BooksTab {
             }
 
             this.setStatus("FilterBook '" + cxn.book + "' is connected as '" + cxn.token + "'...");
-            await this.scanConnectedBooks(true);
-            await this.populateConnections();
             return true;
         } catch (e) {
             console.error(e);
@@ -720,6 +738,7 @@ export class BooksTab {
             if (bookName === false) {
                 return;
             }
+            this.enableConnectionSwitches(false);
             // we may be deleting the selected book
             if (bookName === this.selectedBook()) {
                 this.selectedBooks[this.account.id] = undefined;
@@ -771,6 +790,7 @@ export class BooksTab {
             let uuid = sender.target.getAttribute("data-cxn-uuid");
             for (const cxn of this.connectedBooks[this.account.id]) {
                 if (cxn.uuid === uuid) {
+                    this.enableConnectionSwitches(false);
                     if (sender.target.checked) {
                         console.assert(cxn.connected === false);
                         if (verbose) {
@@ -799,6 +819,7 @@ export class BooksTab {
             if (verbose) {
                 console.debug("onScanClick");
             }
+            this.enableConnectionSwitches(false);
             await this.populateConnections(true);
         } catch (e) {
             console.error(e);
@@ -882,6 +903,7 @@ export class BooksTab {
             if (verbose) {
                 console.debug("onDisconnectClick");
             }
+            this.enableConnectionSwitches(false);
             await this.disconnectAllBooks();
 
             if (verbose) {
@@ -920,6 +942,26 @@ export class BooksTab {
     async onDeleteClick() {
         try {
             await this.addOrDeleteBook("rmbook", "Deleting", this.controls.deleteInput);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async onInputKeypress(event) {
+        try {
+            // book name keypress filter
+            const key = String.fromCharCode(event.which);
+            const element = event.srcElement;
+            const value = element.value.trim();
+            if (value.length == 0) {
+                if (!/^[a-zA-Z]$/.test(key)) {
+                    event.preventDefault();
+                }
+            } else {
+                if (!/^[a-zA-Z0-9_-]$/.test(key)) {
+                    event.preventDefault();
+                }
+            }
         } catch (e) {
             console.error(e);
         }

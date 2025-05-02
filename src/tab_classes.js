@@ -10,8 +10,8 @@ const dumpHTML = false;
 
 const MIN_LEVELS = 2;
 const MAX_LEVELS = 16;
-const MIN_SCORE = -10;
-const MAX_SCORE = 10;
+const MIN_SCORE = -20;
+const MAX_SCORE = 20;
 const STEP_SCORE = 0.1;
 
 const STATUS_PENDING_TIMEOUT = 5120;
@@ -222,7 +222,7 @@ export class ClassesTab {
             if (update.row < update.levels.length - 1) {
                 let nextLevelValue = this.round(update.levels[update.row + 1].score);
                 if (value >= nextLevelValue) {
-                    value = nextLevelValue - 0.1;
+                    value = nextLevelValue - STEP_SCORE;
                 }
             }
 
@@ -230,20 +230,20 @@ export class ClassesTab {
             if (update.row > 0) {
                 let lastLevelValue = this.round(update.levels[update.row - 1].score);
                 if (value <= lastLevelValue) {
-                    value = lastLevelValue + 0.1;
+                    value = lastLevelValue + STEP_SCORE;
                 }
             }
 
             // round the slider to tenths after the calculations
             value = this.round(value);
             update.levels[update.row].score = value;
+            update.slider.value = value;
+            update.score.value = value;
             let classes = await classesFactory();
             await classes.setAccountId(update.accountId);
             for (const level of update.levels) {
                 classes.addLevel(level.name, level.score);
             }
-            update.slider.value = value;
-            update.score.value = value;
             await this.updateClasses(classes);
         } catch (e) {
             console.error(e);
@@ -395,7 +395,8 @@ export class ClassesTab {
             }
             cells["level-name"].attributes.rstmsKeyFilter = "name";
             cells["level-score"].attributes.rstmsKeyFilter = "score";
-            //cells["level-slider"].classes.push("flex-fill");
+            cells["level-score"].step = STEP_SCORE;
+            cells["level-slider"].step = STEP_SCORE;
             this.cellTemplate = cells;
             if (verbose) {
                 console.debug("cellTemplate:", this.cellTemplate);
@@ -515,6 +516,7 @@ export class ClassesTab {
                         sliderControl.addEventListener("mouseup", this.handlers.SliderMoved);
                         sliderControl.addEventListener("mouseleave", this.handlers.SliderMoved);
                         scoreControl.addEventListener("change", this.handlers.ScoreChanged);
+                        scoreControl.type = "number";
                         scoreControl.addEventListener("keypress", this.handlers.InputKeypress);
                     }
                     let deleteDisabled = disabled | (levels.length <= MIN_LEVELS);
@@ -572,8 +574,41 @@ export class ClassesTab {
             }
             await this.enableControls(controlLevels.valid ? true : false);
 
+            await this.updateScoreMinMax(controlLevels);
+
             if (verbose) {
                 console.debug("END populateRows");
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async updateScoreMinMax(classes) {
+        try {
+            // set score input min/max
+            let min = [];
+            let max = [];
+            for (let i = 0; i < classes.levels.length - 1; i++) {
+                if (i > 0) {
+                    min.push(this.round(classes.levels[i - 1].score + STEP_SCORE));
+                } else {
+                    min.push(this.round(MIN_SCORE));
+                }
+                if (i < classes.levels.length - 2) {
+                    max.push(this.round(classes.levels[i + 1].score - STEP_SCORE));
+                } else {
+                    max.push(this.round(MAX_SCORE));
+                }
+            }
+            for (let i = 0; i < classes.levels.length - 1; i++) {
+                const score = document.getElementById(`level-score-${i}`);
+                score.min = min[i];
+                score.max = max[i];
+                score.step = this.round(STEP_SCORE);
+                if (verbose) {
+                    console.debug("setting score min/max", i, classes.levels[i].score, score);
+                }
             }
         } catch (e) {
             console.error(e);

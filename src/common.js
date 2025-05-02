@@ -13,7 +13,7 @@ export const verbosity = {
     ports: false,
     rescan: true,
     tab_advanced: false,
-    tab_books: true,
+    tab_books: false,
     tab_classes: false,
     tab_help: false,
     tab_options: false,
@@ -159,7 +159,7 @@ export function isValidEmailAddress(address) {
 
 export function isValidBookName(name) {
     try {
-        const bookNameRegex = /^[a-zA-Z][a-zA-Z0-9\\.%+_-]*[a-zA-Z0-9]$/;
+        const bookNameRegex = /^[a-zA-Z][a-zA-Z0-9\\._-]*$/;
         if (typeof name !== "string") {
             return false;
         }
