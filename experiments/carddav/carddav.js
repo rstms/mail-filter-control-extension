@@ -8,6 +8,7 @@ ChromeUtils.defineESModuleGetters(this, {
     CryptoUtils: "resource://services-crypto/utils.sys.mjs",
 });
 
+const NULL_BOOKS_RETRY_LIMIT = 3;
 const DETECT_BOOKS_RETRY_LIMIT = 5;
 
 var cardDAV = class extends ExtensionCommon.ExtensionAPI {
@@ -82,6 +83,11 @@ var cardDAV = class extends ExtensionCommon.ExtensionAPI {
                     while (!matched) {
                         let detected = await CardDAVUtils.detectAddressBooks(username, password, hostname, false);
                         console.log("detected:", detected);
+                        if (detected.length === 0) {
+                            if (++tries >= NULL_BOOKS_RETRY_LIMIT) {
+                                matched = true;
+                            }
+                        }
                         for (const book of detected) {
                             let token = this.pathToken(book.url.pathname);
                             let uuid = await this.generateHashUUID(book.url.href + username);
