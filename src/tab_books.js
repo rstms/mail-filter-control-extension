@@ -518,6 +518,9 @@ export class BooksTab {
             }
             this.setStatus("CardDAV server scan complete");
             for (const book of books) {
+                if (book.name.match(/\s/)) {
+                    continue;
+                }
                 console.assert(book.username === username);
                 this.serverBooks[this.account.id][book.name] = book;
             }

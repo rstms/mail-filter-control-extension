@@ -652,6 +652,9 @@ export class Books extends FilterData {
                 inputBooks = {};
             }
             for (let [name, addresses] of Object.entries(inputBooks)) {
+                if (name.match(/\s/)) {
+                    continue;
+                }
                 this.addBook(name);
                 if (!Array.isArray(addresses)) {
                     this.errors.push("illegal address list type");
