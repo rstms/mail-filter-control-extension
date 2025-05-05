@@ -703,7 +703,7 @@ async function onMenuEvent(menuEvent, mids, info, tab) {
         let refresh = false;
         let detail = await menuEventDetail(info, tab);
         if (menuEvent === "onShown" && detail.setVisibility) {
-            await setMenuVisibility(menus, detail.accountId, detail.context);
+            await setMenuVisibility(menus, detail);
             refresh = true;
         }
         for (let mid of mids) {
@@ -711,7 +711,9 @@ async function onMenuEvent(menuEvent, mids, info, tab) {
                 if (Object.hasOwn(menus[mid], menuEvent)) {
                     let handler = getMenuHandler(menus[mid][menuEvent]);
                     let changed = await handler(menus[mid], detail);
-                    refresh ||= changed;
+                    if (changed) {
+                        refresh = true;
+                    }
                 }
             } else {
                 console.error("menu not found:", menuEvent, mid, { detail, menus });
@@ -719,6 +721,7 @@ async function onMenuEvent(menuEvent, mids, info, tab) {
             }
         }
         if (refresh) {
+            console.log("refreshing menus");
             await messenger.menus.refresh();
         }
     } catch (e) {
@@ -726,7 +729,9 @@ async function onMenuEvent(menuEvent, mids, info, tab) {
     }
 }
 
-async function setMenuVisibility(menus, accountId, context) {
+async function setMenuVisibility(menus, detail) {
+    let accountId = detail.accountId;
+    let context = detail.context;
     try {
         if (verbose) {
             console.debug("setMenuVisibility:", accountId, context);
@@ -737,10 +742,16 @@ async function setMenuVisibility(menus, accountId, context) {
             if (config.properties.contexts.includes(context)) {
                 let properties = {};
                 properties.visible = accountId !== undefined;
-                if (properties.visible && config.accountId !== undefined) {
-                    properties.visible = accountId === config.accountId;
-                    if (config.properties.type === "radio") {
-                        properties.checked = config.properties.title === book;
+                if (properties.visible) {
+                    if (config.id === "rmfRescanMessages" || config.id === "rmfRescanFolder") {
+                        // rescan visibility depends on selected folder
+                        properties.visible = await getRescanVisibility(config.id, detail);
+                    } else if (config.accountId !== undefined) {
+                        // filterbook visibility depends on selected account
+                        properties.visible = accountId === config.accountId;
+                        if (config.properties.type === "radio") {
+                            properties.checked = config.properties.title === book;
+                        }
                     }
                 }
                 if (verbose) {
@@ -850,6 +861,48 @@ async function onMenuShownUpdateAddSenderTitle(target, detail) {
             await messenger.menus.update(target.id, { visible: false });
         }
         return true;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+// hide rescan on ineligible account
+async function getRescanVisibility(menuId, detail) {
+    try {
+        //if (verbose) {
+        console.debug("getRescanVisibility:", { menuId, detail });
+        //}
+        if (detail.hasAccount) {
+            var folderPath;
+            var folderName;
+            if (Object.hasOwn(detail, "info") && Object.hasOwn(detail.info, "displayedFolder")) {
+                folderPath = detail.info.displayedFolder.path;
+                folderName = detail.info.displayedFolder.name;
+                if (menuId === "rmfRescanFolder") {
+                    return false;
+                }
+            }
+            if (Object.hasOwn(detail, "info") && Object.hasOwn(detail.info, "selectedFolders")) {
+                if (detail.info.selectedFolders.length === 1) {
+                    folderPath = detail.info.selectedFolders[0].path;
+                    folderName = detail.info.selectedFolders[0].name;
+                    if (menuId === "rmfRescanMessages") {
+                        return false;
+                    }
+                }
+            }
+            console.debug("rescan:", { detail, folderPath });
+            // enable rescan menu if folder not present in noRescanFolders
+            let parts = folderPath.split("/");
+            if (folderName !== "Root" && parts.length > 1) {
+                folderName = parts[1];
+            }
+            const noRescanFolders = ["Root", "Junk", "Sent", "Drafts", "Trash"];
+            if (!noRescanFolders.includes(folderName)) {
+                return true;
+            }
+        }
+        return false;
     } catch (e) {
         console.error(e);
     }
@@ -1326,7 +1379,6 @@ async function handleSetClasses(message) {
         }
         const filterctl = await getFilterDataController();
         const result = await filterctl.setClasses(message.accountId, message.classes);
-        console.log("setClasses writeState:", result);
         if (result.valid) {
             await filterctl.writeState();
         }
@@ -1344,7 +1396,6 @@ async function handleSendClasses(message) {
         if (verbose) {
             console.debug("sendClasses result:", result);
         }
-        console.log("sendClasses writeState:", result);
         await filterctl.writeState();
         return result;
     } catch (e) {
@@ -1360,7 +1411,6 @@ async function handleSendAllClasses(message) {
         if (verbose) {
             console.debug("sendAllClasses result:", result);
         }
-        console.log("sendAllClasses writeState:", result);
         await filterctl.writeState();
         return result;
     } catch (e) {
