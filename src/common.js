@@ -11,7 +11,7 @@ export const verbosity = {
     email: false,
     filterctl: false,
     ports: false,
-    rescan: false,
+    rescan: true,
     tab_advanced: false,
     tab_books: false,
     tab_classes: false,

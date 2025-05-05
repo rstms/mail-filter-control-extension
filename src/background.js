@@ -721,7 +721,9 @@ async function onMenuEvent(menuEvent, mids, info, tab) {
             }
         }
         if (refresh) {
-            console.log("refreshing menus");
+            if (verbose) {
+                console.debug("refreshing menus");
+            }
             await messenger.menus.refresh();
         }
     } catch (e) {
@@ -869,9 +871,9 @@ async function onMenuShownUpdateAddSenderTitle(target, detail) {
 // hide rescan on ineligible account
 async function getRescanVisibility(menuId, detail) {
     try {
-        //if (verbose) {
-        console.debug("getRescanVisibility:", { menuId, detail });
-        //}
+        if (verbose) {
+            console.debug("getRescanVisibility:", { menuId, detail });
+        }
         if (detail.hasAccount) {
             var folderPath;
             var folderName;
@@ -891,7 +893,9 @@ async function getRescanVisibility(menuId, detail) {
                     }
                 }
             }
-            console.debug("rescan:", { detail, folderPath });
+            if (verbose) {
+                console.debug("rescan:", { detail, folderPath });
+            }
             // enable rescan menu if folder not present in noRescanFolders
             let parts = folderPath.split("/");
             if (folderName !== "Root" && parts.length > 1) {
