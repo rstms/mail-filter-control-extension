@@ -1,4 +1,5 @@
-import { differ, verbosity } from "./common.js";
+import { differ, verbosity, accountDomain, accountEmailAddress } from "./common.js";
+import { getAccounts } from "./accounts.js";
 
 /* globals console, messenger */
 
@@ -279,23 +280,68 @@ export const config = {
     session: new ConfigSession(),
 };
 
-export async function updateActiveRescans(rescanResponse, prune = false) {
+export async function updateActiveRescans(rescanResponse, pruneAccountId = null) {
     try {
+        // prune is true if this rescanResponse is from a request that did not specify
+        // a specific rescanId.
+        //
+        // Absence of a rescanId in sucn a response indicates that the rescand
+        // has pruned the rescan data after the 'prune_timeout' has elapsed
+
         if (typeof rescanResponse !== "object" || typeof rescanResponse.Status !== "object") {
             console.error("invalid rescanResponse:", rescanResponse);
             throw new Error("invalid rescanResponse");
         }
+
+        // load the stored active rescans for all accounts
         let activeRescans = await config.session.get(config.session.key.activeRescans);
         if (typeof activeRescans !== "object") {
             activeRescans = {};
         }
-        var updated = {};
-        for (const [rescanId, rescanStatus] of Object.entries(rescanResponse.Status)) {
-            updated[rescanId] = Object.assign({}, rescanStatus);
-            activeRescans[rescanId] = Object.assign({}, rescanStatus);
+
+        let accountMap = new Map();
+        let accounts = await getAccounts();
+        for (const account of Object.values(accounts)) {
+            accountMap.set(accountEmailAddress(account), account);
         }
-        if (prune) {
-            activeRescans = updated;
+
+        let updated = {};
+
+        for (const [rescanId, rescanStatus] of Object.entries(rescanResponse.Status)) {
+            let account = accountMap.get(rescanStatus.Request.Username);
+            let key = account.id + "-" + rescanId;
+            updated[key] = Object.assign({}, rescanStatus);
+            activeRescans[key] = Object.assign({}, rescanStatus);
+        }
+
+        // if pruneAccountId is set, this request will include all active
+        // rescans with the same domain as the account with pruneAccountId
+        if (pruneAccountId) {
+            let pruneDomain = accountDomain(accounts[pruneAccountId]);
+            // set pruneAccountIds true for all accounts in pruneDomain
+            var pruneAccountIds = new Map();
+            for (const [id, account] of Object.entries(accounts)) {
+                if (accountDomain(account) === pruneDomain) {
+                    pruneAccountIds.set(id, true);
+                }
+            }
+            let updatedActiveRescans = {};
+            for (const [rescanId, rescanStatus] of Object.entries(activeRescans)) {
+                if (pruneAccountIds.has(rescanId.replace(/-.*$/, ""))) {
+                    // if the accountId of an active rescan is in pruneAccountIds
+                    if (Object.hasOwn(updated, rescanId)) {
+                        // keep the rescan active if it was updated
+                        updatedActiveRescans[rescanId] = rescanStatus;
+                    } else {
+                        // prune the rescan if it was not updated
+                        console.log("Pruned rescan:", rescanId);
+                    }
+                } else {
+                    // don't prune rescans from other accounts
+                    updatedActiveRescans[rescanId] = rescanStatus;
+                }
+            }
+            activeRescans = updatedActiveRescans;
         }
         await config.session.set(config.session.key.activeRescans, activeRescans);
     } catch (e) {

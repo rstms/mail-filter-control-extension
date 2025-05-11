@@ -5,18 +5,24 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no" />
         <title>mail-filter-control-extension</title>
         <link rel="stylesheet" href="assets/bootstrap/css/bootstrap.min.css?h=2a67f89353a72f7ee4500027c27d0b66" />
-        <link rel="stylesheet" href="assets/css/Source%20Sans%20Pro.css?h=77b9d6e3c78f5bf77addb8ede3118aa0" />
+        <link rel="stylesheet" href="assets/css/Source%20Sans%20Pro.css?h=4edaf689ab8bd3575323096810375b2f" />
         <link rel="stylesheet" href="chrome://messenger/skin/shared/common.css" />
         <script type="module" src="./src/rescan.js"></script>
     </head>
 
     <body>
         <div class="vstack" style="padding: 10px">
-            <div class="row">
-                <div class="col">
-                    <button class="btn btn-primary btn-sm" id="rescan-refresh-button" type="button" style="margin: 10px">
-                        Refresh
-                    </button>
+            <div class="row d-flex">
+                <div class="col-auto d-flex flex-grow-1">
+                    <div class="hstack d-flex flex-grow-1 justify-content-end">
+                        <button class="btn btn-primary btn-sm" id="rescan-refresh-button" type="button" style="margin: 10px">
+                            Refresh</button
+                        ><button class="btn btn-primary btn-sm" id="rescan-clear-button" type="button" style="margin: 10px">
+                            Clear Inactive</button
+                        ><button class="btn btn-primary btn-sm" id="rescan-close-button" type="button" style="margin: 10px">
+                            Close
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="row">
