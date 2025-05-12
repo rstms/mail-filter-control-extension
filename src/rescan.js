@@ -129,7 +129,11 @@ async function refreshRescanStatus(allAccounts = false) {
             }
             // just send the response to updateActiveRescans
             // the display is updated in the handler of the resulting storage change event
-            await updateActiveRescans(response, accountId);
+            try {
+                await updateActiveRescans(response, accountId);
+            } catch (e) {
+                console.error(e);
+            }
         }
     } catch (e) {
         console.error(e);
