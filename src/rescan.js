@@ -111,6 +111,7 @@ async function refreshRescanStatus(allAccounts = false) {
         if (verbose) {
             console.log("refreshRescanStatus:", { allAccounts });
         }
+        timer = null;
         if (closePending) {
             // updateDisplay wants to close, so don't request a new refresh this tick
             return await updateDisplay();
@@ -119,19 +120,22 @@ async function refreshRescanStatus(allAccounts = false) {
         enableButtons(false);
         let accountIds = await refreshAccountIds(allAccounts);
         for (const accountId of accountIds) {
-            const response = await sendMessage({
-                id: "sendCommand",
-                accountId: accountId,
-                command: "rescanstatus",
-                timeout: 0,
-            });
-            if (verbose) {
-                console.debug("rescanstatus response:", accountId, response);
-            }
-            // just send the response to updateActiveRescans
-            // the display is updated in the handler of the resulting storage change event
             try {
-                await updateActiveRescans(response, accountId);
+                const response = await sendMessage({
+                    id: "sendCommand",
+                    accountId: accountId,
+                    command: "rescanstatus",
+                });
+                if (verbose) {
+                    console.debug("rescanstatus response:", accountId, response);
+                }
+                // just send the response to updateActiveRescans
+                // the display is updated in the handler of the resulting storage change event
+                try {
+                    await updateActiveRescans(response, accountId);
+                } catch (e) {
+                    console.error(e);
+                }
             } catch (e) {
                 console.error(e);
             }
@@ -141,6 +145,9 @@ async function refreshRescanStatus(allAccounts = false) {
     } finally {
         refreshPending = false;
         enableButtons(true);
+        if (!timer) {
+            resetRefreshTimer(ACTIVE_REFRESH_SECONDS);
+        }
     }
 }
 
