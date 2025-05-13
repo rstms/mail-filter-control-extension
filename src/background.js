@@ -982,7 +982,7 @@ async function onMenuRescanMessagesClicked(target, detail) {
         let messages = page.messages;
         while (messages.length) {
             for (const message of messages) {
-                messageIds.push(message.headerMessageId);
+                messageIds.push(message.headerMessageId.strip());
                 console.assert(message.folder.path === path, "message path mismatch");
             }
             if (page.id) {
