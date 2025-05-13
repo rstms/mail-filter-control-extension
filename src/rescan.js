@@ -123,6 +123,7 @@ async function refreshRescanStatus(allAccounts = false) {
                 id: "sendCommand",
                 accountId: accountId,
                 command: "rescanstatus",
+                timeout: 0,
             });
             if (verbose) {
                 console.debug("rescanstatus response:", accountId, response);

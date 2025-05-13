@@ -978,9 +978,19 @@ async function onMenuRescanMessagesClicked(target, detail) {
         let account = await getAccount(detail.info.displayedFolder.accountId);
         let path = detail.info.displayedFolder.path;
         let messageIds = [];
-        for (const message of detail.info.selectedMessages.messages) {
-            messageIds.push(message.headerMessageId);
-            console.assert(message.folder.path === path, "message path mismatch");
+        let page = detail.info.selectedMessages;
+        let messages = page.messages;
+        while (messages.length) {
+            for (const message of messages) {
+                messageIds.push(message.headerMessageId);
+                console.assert(message.folder.path === path, "message path mismatch");
+            }
+            if (page.id) {
+                page = await messenger.messages.continueList(page.id);
+                messages = page.messages;
+            } else {
+                break;
+            }
         }
         if (messageIds.length > 0) {
             await requestRescan(account, path, messageIds);
