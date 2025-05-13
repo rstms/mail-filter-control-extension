@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "version": "1.0.10",
+  "version": "1.0.11",
   "author": "Matt Krueger <mkrueger@rstms.net>",
   "homepage_url": "https://github.com/rstms/mail-filter-control-extension",
   "name": "Mail Filter Control",
