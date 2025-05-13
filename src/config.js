@@ -290,7 +290,7 @@ export async function updateActiveRescans(rescanResponse, pruneAccountId = null)
 
         if (typeof rescanResponse !== "object" || typeof rescanResponse.Status !== "object") {
             console.error("invalid rescanResponse:", rescanResponse);
-            throw new Error("invalid rescanResponse");
+            return;
         }
 
         // load the stored active rescans for all accounts
