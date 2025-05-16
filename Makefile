@@ -38,6 +38,10 @@ experiments/background_send/.schema: experiments/background_send/schema.json
 	jq . <$< >$<.parsed && mv $<.parsed $<
 	touch $@
 
+experiments/api_client/.schema: experiments/api_client/schema.json
+	jq . <$< >$<.parsed && mv $<.parsed $<
+	touch $@
+
 assets: exported/assets
 	rm -rf assets
 	mkdir assets

@@ -30,6 +30,14 @@
     "default_title": "Add Sender to Filter Book",
     "default_icon": "funnel.svg"
   },
+  "host_permissions": [
+    "https://webmail.mailcapsule.io/mailfilter/*",
+    "https://webmail.rstms.net/mailfilter/*",
+    "https://webmail.komicollc.com/mailfilter/*",
+    "https://webmail.cypress-trading.com/mailfilter/*",
+    "https://webmail.harborstretventures.com/mailfilter/*",
+    "https://webmail.citybestmanagement.com/mailfilter/*"
+  ],
   "permissions": [
     "accountsRead",
     "compose",
@@ -125,6 +133,20 @@
           ]
         ],
         "script": "./experiments/background_send/background_send.js"
+      }
+    },
+    "apiClient": {
+      "schema": "./experiments/api_client/schema.json",
+      "parent": {
+        "scopes": [
+          "addon_parent"
+        ],
+        "paths": [
+          [
+            "apiClient"
+          ]
+        ],
+        "script": "./experiments/api_client/api_client.js"
       }
     }
   }

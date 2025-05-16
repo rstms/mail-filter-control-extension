@@ -2,6 +2,7 @@ import { generateUUID, differ, verbosity, domainPart, accountEmailAddress, accou
 import { AsyncMap } from "./asyncmap.js";
 import { config } from "./config.js";
 import { getAccount } from "./accounts.js";
+import { Requests } from "./requests.js";
 
 /* global console, messenger, setTimeout, clearTimeout, setInterval, clearInterval, window */
 
@@ -18,12 +19,15 @@ const RESPONSE_EXPIRE_SECONDS = 10;
 const RESPONSE_CHECK_INTERVAL = 1024;
 const AUTO_DELETE_EXPIRE_SECONDS = 15;
 
+// only consider last 24 hours for autodelete
+const AUTODELETE_SEARCH_OFFSET_TICKS = 24 * 60 * 60 * 1000;
+
 const moduleCID = "module-" + generateUUID();
 
 class EmailRequest {
-    constructor(controller, autoDelete, minimizeCompose, backgroundSend) {
+    constructor(controller, id, autoDelete, minimizeCompose, backgroundSend) {
         this.controller = controller;
-        this.id = generateUUID();
+        this.id = id;
         this.autoDelete = autoDelete;
         this.minimizeCompose = minimizeCompose;
         this.backgroundSend = backgroundSend;
@@ -516,6 +520,34 @@ class EmailController {
         }
     }
 
+    isFilterctlMessage(folderType, filterctlAddress, message) {
+        try {
+            switch (folderType) {
+                case "sent":
+                    if (message.folder.path === "/Sent" && message.recipients[0] === filterctlAddress) {
+                        return true;
+                    } else {
+                        console.error("Delete query found unexpected Sent message:", message);
+                    }
+                    break;
+                case "inbox":
+                    if (
+                        message.folder.path === "/INBOX" &&
+                        message.author === filterctlAddress &&
+                        message.subject === "filterctl response"
+                    ) {
+                        return true;
+                    } else {
+                        console.error("Delete query found unexpected INBOX message:", message);
+                    }
+                    break;
+            }
+            return false;
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
     async autoDeleteScan(accountId, folderType) {
         try {
             if (verbose) {
@@ -529,6 +561,8 @@ class EmailController {
             const email = accountEmailAddress(account);
             const domain = accountDomain(account);
             const filterctlAddress = "filterctl@" + domain;
+            const currentDate = new Date();
+            const startDate = new Date(currentDate.getTime() - AUTODELETE_SEARCH_OFFSET_TICKS);
 
             let folders = await messenger.folders.query({ accountId, specialUse: [folderType] });
             for (const folder of folders) {
@@ -545,6 +579,7 @@ class EmailController {
                                 folderId: folder.id,
                                 recipients: filterctlAddress,
                                 fromMe: true,
+                                fromDate: startDate,
                             });
                             break;
                         case "inbox":
@@ -553,34 +588,31 @@ class EmailController {
                                 folderId: folder.id,
                                 author: filterctlAddress,
                                 toMe: true,
+                                fromDate: startDate,
                             });
                             break;
                         default:
                             throw new Error(`unexpected autodelete folder type ${folderType}`);
                     }
                     let messagesToDelete = new Map();
-                    for (const message of queryResult.messages) {
-                        switch (folderType) {
-                            case "sent":
-                                if (message.folder.path === "/Sent" && message.recipients[0] === filterctlAddress) {
-                                    messagesToDelete.set(message.id, message);
-                                } else {
-                                    console.error("Delete query found unexpected Sent message:", message);
-                                }
-                                break;
-                            case "inbox":
-                                if (
-                                    message.folder.path === "/INBOX" &&
-                                    message.author === filterctlAddress &&
-                                    message.subject === "filterctl response"
-                                ) {
-                                    messagesToDelete.set(message.id, message);
-                                } else {
-                                    console.error("Delete query found unexpected INBOX message:", message);
-                                }
-                                break;
+
+                    let page = queryResult;
+                    let messages = page.messages;
+                    while (messages.length) {
+                        for (const message of messages) {
+                            if (this.isFilterctlMessage(folderType, filterctlAddress, message)) {
+                                messagesToDelete.set(message.id, message);
+                            }
+                        }
+                        if (page.id) {
+                            page = await messenger.messages.continueList(page.id);
+                            messages = page.messages;
+                        } else {
+                            // page has null id; there are no continued messages
+                            break;
                         }
                     }
+
                     if (messagesToDelete.size > 0) {
                         deletedCount += messagesToDelete.size;
                         if (verbose) {
@@ -753,7 +785,7 @@ class EmailController {
         }
     }
 
-    async sendRequest(accountId, command, body = undefined, timeout = undefined) {
+    async sendEmailRequest(id, accountId, command, body = undefined, timeout = undefined) {
         try {
             if (verbose) {
                 console.log("email.sendRequest:", { accountId, command, body, timeout });
@@ -762,12 +794,74 @@ class EmailController {
             const minimizeCompose = await config.local.getBool(config.local.key.minimizeCompose);
             const backgroundSend = await config.local.getBool(config.local.key.backgroundSend);
             const account = await getAccount(accountId);
-            let request = new EmailRequest(this, autoDelete, minimizeCompose, backgroundSend);
+            let request = new EmailRequest(this, id, autoDelete, minimizeCompose, backgroundSend);
             var ret = await request.send(account, command, body, timeout);
             if (verbose) {
                 console.log("sendEmailRequest returning:", ret);
             }
             return ret;
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async sendRequest(accountId, commandLine, body = undefined, timeout = undefined) {
+        try {
+            const id = generateUUID();
+            let args = commandLine.split(" ");
+            const command = args.shift();
+            switch (command) {
+                case "passwd":
+                    break;
+                case "dump":
+                    return await this.cmdUserDump(id, accountId, command, args, body, timeout);
+                case "reset":
+                    break;
+                case "restore":
+                    break;
+                case "mkaddr":
+                    break;
+                case "mkbook":
+                    return await this.cmdAddBook(id, accountId, command, args, body, timeout);
+                case "rmbook":
+                    break;
+                case "usage":
+                    break;
+                default:
+                    console.error("unexpected command:", { accountId, command, body, timeout });
+                    throw new Error(`unexpected command: ${command}`);
+            }
+            return await this.sendEmailRequest(id, accountId, commandLine, body, timeout);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async cmdUserDump(id, accountId, command, args, body, timeout) {
+        try {
+            const requests = new Requests();
+            let result = await requests.get(accountId, "/userdump/", id);
+
+            let commandLine = command + " " + args.join(" ");
+            let emailResult = await this.sendEmailRequest(id, accountId, commandLine, body, timeout);
+
+            console.log(differ(result, emailResult), { result, emailResult });
+            return emailResult;
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async cmdAddBook(id, accountId, command, args, body, timeout) {
+        try {
+            const requests = new Requests();
+            let result = await requests.post(accountId, "/book/", { BookName: args[0] }, id);
+
+            let commandLine = command + " " + args.join(" ");
+            let emailResult = await this.sendEmailRequest(id, accountId, commandLine, body, timeout);
+
+            console.log(differ(result, emailResult), { result, emailResult });
+            return emailResult;
         } catch (e) {
             console.error(e);
         }

@@ -252,6 +252,7 @@ class ConfigLocal extends ConfigBase {
             "editorTitle",
             "rescanTitle",
             "preferredTheme",
+            "apiKeys",
         ]);
     }
 }

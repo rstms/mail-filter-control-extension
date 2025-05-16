@@ -134,5 +134,4 @@ var backgroundSend = class extends ExtensionCommon.ExtensionAPI {
         };
     }
 };
-
 console.log(backgroundSend);

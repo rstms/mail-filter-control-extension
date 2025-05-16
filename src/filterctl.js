@@ -1171,10 +1171,12 @@ export class FilterDataController {
             if (verbose) {
                 console.debug("get: sending filterctl dump request:", type, accountId);
             }
+
             let response = await this.email.sendRequest(accountId, "dump", {});
             if (verbose) {
                 console.debug("get: filterctl response:", response);
             }
+
             if (response === undefined || !response) {
                 console.error("filterctl request failed:", response);
                 throw new Error("Unknown filterctl request failure");

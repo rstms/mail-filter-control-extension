@@ -7,8 +7,9 @@ import { FilterDataController } from "./filterctl.js";
 import { email } from "./email.js";
 import { config, updateActiveRescans } from "./config.js";
 import { verbosity } from "./common.js";
+import { Requests } from "./requests.js";
 
-/* globals messenger, console, window */
+/* globals console, messenger, window */
 
 // control flags
 const verbose = verbosity.background;
@@ -57,7 +58,40 @@ async function initialize(mode) {
             return;
         }
 
+        await initAPIKeys(true);
+
         await autoOpen();
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function initAPIKeys(clear = false) {
+    try {
+        const requests = new Requests();
+        if (clear) {
+            await requests.clearKeys();
+        } else {
+            await requests.readKeys();
+        }
+        let filterctl = null;
+        const accounts = await getAccounts();
+        for (const account of Object.values(accounts)) {
+            const username = accountEmailAddress(account);
+            try {
+                await requests.getKey(username);
+            } catch (e) {
+                console.warn(e);
+                if (!filterctl) {
+                    filterctl = await getFilterDataController();
+                }
+                const password = await filterctl.getPassword(account.id);
+                await requests.setKey(username, password);
+            }
+            let key = await requests.getKey(username);
+            console.log("apiKey:", username, key);
+        }
+        await requests.writeKeys();
     } catch (e) {
         console.error(e);
     }
@@ -556,6 +590,7 @@ async function initMenus() {
         // FIXME: maybe we don't need to update the messaage display action here
         // because it will be done on onDisplayedFolderChanged and/or onSelectedMessagesChanged
         // const accountId = await selectedMessagesAccountId();
+        //
         // await updateMessageDisplayAction(accountId);
     } catch (e) {
         console.error(e);
@@ -978,6 +1013,7 @@ async function onMenuRescanMessagesClicked(target, detail) {
         let account = await getAccount(detail.info.displayedFolder.accountId);
         let path = detail.info.displayedFolder.path;
         let messageIds = [];
+
         let page = detail.info.selectedMessages;
         let messages = page.messages;
         while (messages.length) {
