@@ -134,20 +134,6 @@
         ],
         "script": "./experiments/background_send/background_send.js"
       }
-    },
-    "apiClient": {
-      "schema": "./experiments/api_client/schema.json",
-      "parent": {
-        "scopes": [
-          "addon_parent"
-        ],
-        "paths": [
-          [
-            "apiClient"
-          ]
-        ],
-        "script": "./experiments/api_client/api_client.js"
-      }
     }
   }
 }
