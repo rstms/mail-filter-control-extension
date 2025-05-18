@@ -142,6 +142,10 @@ export class OptionsTab {
                 await this.domains.setAll(this.pendingDomains);
                 await this.clearCache();
                 this.controls.domainsStack.innerHTML = "";
+                for (const [controlName, control] of Object.entries(this.controls)) {
+                    console.log("disabling control:", controlName);
+                    control.disabled = true;
+                }
                 const label = document.createElement("label");
                 this.controls.domainsStack.appendChild(label);
                 let accounts = await getAccounts();

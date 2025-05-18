@@ -744,7 +744,9 @@ async function onMenuEvent(menuEvent, mids, info, tab) {
 }
 
 async function setMenuVisibility(menus, detail) {
-    await getMenus();
+    if (menus === undefined) {
+        menus = await getMenus();
+    }
     let accountId = detail.accountId;
     let context = detail.context;
     try {
