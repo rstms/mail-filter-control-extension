@@ -758,9 +758,9 @@ async function setMenuVisibility(menus, detail) {
     let accountId = detail.accountId;
     let context = detail.context;
     try {
-        if (verbose) {
-            console.debug("setMenuVisibility:", accountId, context);
-        }
+        //if (verbose) {
+        console.debug("setMenuVisibility:", detail);
+        //}
 
         let book = accountId === undefined ? undefined : await getAddSenderTarget(accountId);
         for (const config of Object.values(menus)) {
