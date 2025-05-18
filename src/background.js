@@ -575,6 +575,7 @@ async function initMenus() {
         if (verbose) {
             console.log("saved menu config:", menus);
         }
+        return menus;
     } catch (e) {
         console.error(e);
     }
