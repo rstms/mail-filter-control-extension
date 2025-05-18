@@ -711,6 +711,7 @@ async function onMenuShown(info, tab) {
 async function onMenuEvent(menuEvent, mids, info, tab) {
     try {
         let menus = await getMenus();
+        console.log("onMenuEvent:", { menus, menuEvent, mids, info, tab });
         console.assert(Array.isArray(mids));
         let refresh = false;
         let detail = await menuEventDetail(info, tab);
