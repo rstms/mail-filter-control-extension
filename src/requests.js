@@ -46,7 +46,10 @@ export class Requests {
 
     async setKey(username, password) {
         try {
-            const original = this.keys.get(username);
+            let original = undefined;
+            if (await this.hasKey(username)) {
+                original = this.keys.get(username);
+            }
             const apiKey = btoa(`${username}:${password}`);
             if (apiKey !== original) {
                 this.keys.set(username, apiKey);
