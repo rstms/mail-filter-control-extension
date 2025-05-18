@@ -68,10 +68,7 @@ async function initAPIKeys(clear = false) {
         const accounts = await getAccounts();
         for (const account of Object.values(accounts)) {
             const username = accountEmailAddress(account);
-            if (!(await requests.hasKey(username))) {
-                await requests.queryKey(username);
-            }
-            let key = await requests.getKey(username);
+            let key = await requests.getKey(account.id, username);
             console.log("apiKey:", username, key);
         }
         await requests.writeKeys();
@@ -1600,7 +1597,6 @@ async function autoOpen() {
         if (autoOptions === true) {
             await messenger.runtime.openOptionsPage();
         } else if (cacheCleared === true) {
-            await initAPIKeys();
             await focusEditorWindow();
         }
     } catch (e) {

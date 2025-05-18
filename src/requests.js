@@ -67,10 +67,13 @@ export class Requests {
         }
     }
 
-    async getKey(username) {
+    async getKey(accountId, username) {
         try {
-            if (this.keys === null || this.keys.has(username) === false) {
+            if (!(await this.hasKey(username))) {
                 await this.readKeys();
+            }
+            if (!(await this.hasKey(username))) {
+                await this.queryKey(accountId, username);
             }
             const apiKey = this.keys.get(username);
             if (typeof apiKey === "string" && apiKey.length > 0) {
@@ -112,7 +115,7 @@ export class Requests {
             if (!Object.hasOwn(options, "headers")) {
                 options.headers = {};
             }
-            options.headers["X-Api-Key"] = await this.getKey(username);
+            options.headers["X-Api-Key"] = await this.getKey(accountId, username);
             options.headers["X-Request-Id"] = id;
             if (options.method === "POST") {
                 options.headers["Content-Type"] = "application/json";
