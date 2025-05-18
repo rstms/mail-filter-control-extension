@@ -140,30 +140,38 @@ export class OptionsTab {
             const domains = await this.domains.get({ refresh: true });
             if (differ(this.pendingDomains, domains)) {
                 await this.domains.setAll(this.pendingDomains);
-                await this.clearCache();
-                this.controls.domainsStack.innerHTML = "";
-                for (const [controlName, control] of Object.entries(this.controls)) {
-                    console.log("disabling control:", controlName);
-                    control.disabled = true;
-                }
-                const label = document.createElement("label");
-                this.controls.domainsStack.appendChild(label);
-                let accounts = await getAccounts();
-                let queryAccountIds = new Map();
-                for (const account of Object.values(accounts)) {
-                    for (const domain of Object.keys(this.pendingDomains)) {
-                        if (accountDomain(account) == domain) {
-                            queryAccountIds.set(account.id, accountEmailAddress(account));
-                        }
-                    }
-                }
-                for (const [accountId, username] of queryAccountIds.entries()) {
-                    label.textContent = `Requesting data for '${username}'...`;
-                    await this.sendMessage({ id: "getBooks", accountId });
-                }
-                label.textContent = "Reloading extension...";
+                await this.refreshAccountData(this.pendingDomains);
                 await messenger.runtime.reload();
             }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async refreshAccountData(activeDomains) {
+        try {
+            await this.clearCache();
+            this.controls.domainsStack.innerHTML = "";
+            for (const [controlName, control] of Object.entries(this.controls)) {
+                console.log("disabling control:", controlName);
+                control.disabled = true;
+            }
+            const label = document.createElement("label");
+            this.controls.domainsStack.appendChild(label);
+            let accounts = await getAccounts();
+            let queryAccountIds = new Map();
+            for (const account of Object.values(accounts)) {
+                for (const domain of Object.keys(activeDomains)) {
+                    if (accountDomain(account) == domain) {
+                        queryAccountIds.set(account.id, accountEmailAddress(account));
+                    }
+                }
+            }
+            for (const [accountId, username] of queryAccountIds.entries()) {
+                label.textContent = `Requesting data for '${username}'...`;
+                await this.sendMessage({ id: "getBooks", accountId });
+            }
+            label.textContent = "Reloading extension...";
         } catch (e) {
             console.error(e);
         }
@@ -230,7 +238,6 @@ export class OptionsTab {
             await config.local.remove(config.local.key.filterctlState);
             await config.local.remove(config.local.key.apiKeys);
             await config.session.remove(config.session.key.menuConfig);
-            //await config.session.setBool(config.session.key.clearMenu, true);
         } catch (e) {
             console.error(e);
         }
@@ -240,6 +247,8 @@ export class OptionsTab {
         try {
             await this.clearCache();
             await config.local.setBool(config.local.key.cacheCleared, true);
+            const domains = await this.domains.get({ refresh: true });
+            await this.refreshAccountData(domains);
             await messenger.runtime.reload();
         } catch (e) {
             console.error(e);
