@@ -7,7 +7,7 @@ import { isAccount, getAccount, getAccounts } from "./accounts.js";
 import { config } from "./config.js";
 import { verbosity } from "./common.js";
 import { displayProcess } from "./display.js";
-import { requests } from "./requests.js";
+import { Requests } from "./requests.js";
 
 /* global console, messenger */
 
@@ -749,6 +749,7 @@ export class FilterDataController {
             this.locked = false;
             this.waiting = [];
             this.email = email;
+            this.requests = new Requests();
             this.initialize();
         } catch (e) {
             console.error(e);
@@ -1186,7 +1187,7 @@ export class FilterDataController {
             }
 
             // parse Password from response and update requests key
-            await requests.setKey(accountEmailAddress(await getAccount(accountId)), response.Password);
+            await this.requests.setKey(accountEmailAddress(await getAccount(accountId)), response.Password);
 
             // parse Classes from response
             let classes = await datasetFactory(CLASSES, response, accountId);
