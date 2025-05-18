@@ -550,12 +550,18 @@ async function initMenus() {
     try {
         let menus = {};
         await messenger.menus.removeAll();
-        if ((await config.session.getBool(config.session.key.clearMenus)) || !(await isApproved())) {
-            await config.session.remove(config.session.key.clearMenus);
+        let clearMenu = false;
+        if (await config.session.getBool(config.session.key.clearMenu)) {
+            await config.session.remove(config.session.key.clearMenu);
+            clearMenu = true;
+        }
+        if (!(await isApproved())) {
+            clearMenu = true;
+        }
+        if (clearMenu) {
             await messenger.menus.refresh();
             return;
         }
-
         for (let [mid, config] of Object.entries(menuConfig)) {
             if (config.noInit !== true) {
                 await createMenu(menus, mid, config);
@@ -749,9 +755,6 @@ async function onMenuEvent(menuEvent, mids, info, tab) {
 }
 
 async function setMenuVisibility(menus, detail) {
-    if (menus === undefined) {
-        menus = await getMenus();
-    }
     let accountId = detail.accountId;
     let context = detail.context;
     try {

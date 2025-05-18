@@ -275,7 +275,7 @@ class ConfigSession extends ConfigBase {
 
             // flags for editor tabs
             "reloadBooks",
-            "clearMenus",
+            "clearMenu",
         ]);
     }
 }
