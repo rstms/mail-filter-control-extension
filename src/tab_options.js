@@ -130,8 +130,8 @@ export class OptionsTab {
             this.controls.domainsApplyButton.hidden = !visible;
             this.controls.domainsCancelButton.disabled = !visible;
             this.controls.domainsCancelButton.hidden = !visible;
-	    this.controls.resetButton.disabled = visible;
-	    this.controls.clearCacheButton.disabled = visible;
+            this.controls.resetButton.disabled = visible;
+            this.controls.clearCacheButton.disabled = visible;
         } catch (e) {
             console.error(e);
         }
