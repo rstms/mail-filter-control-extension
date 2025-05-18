@@ -43,14 +43,12 @@ async function initialize(mode) {
             return;
         }
 
-        await initAPIKeys(true);
+        await initAPIKeys(mode === "initialize");
 
-        // we're initalizing, so forget pending filterctl state
+        // we've restarted so forget pending filterctl state
         let filterctl = await getFilterDataController();
         await filterctl.purgePending();
-
         await initMenus();
-
         await autoOpen();
     } catch (e) {
         console.error(e);
