@@ -550,7 +550,8 @@ async function initMenus() {
     try {
         let menus = {};
         await messenger.menus.removeAll();
-        if (!(await isApproved())) {
+        if ((await config.session.getBool(config.session.key.clearMenus)) || !(await isApproved())) {
+            await config.session.remove(config.session.key.clearMenus);
             await messenger.menus.refresh();
             return;
         }

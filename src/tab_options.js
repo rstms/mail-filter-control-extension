@@ -230,6 +230,7 @@ export class OptionsTab {
             await config.local.remove(config.local.key.filterctlState);
             await config.local.remove(config.local.key.apiKeys);
             await config.session.remove(config.session.key.menuConfig);
+            await config.session.setBool(config.session.key.clearMenus);
         } catch (e) {
             console.error(e);
         }
