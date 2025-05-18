@@ -57,7 +57,7 @@ async function initialize(mode) {
     }
 }
 
-export async function initAPIKeys(clear = false) {
+async function initAPIKeys(clear = false) {
     try {
         const requests = new Requests();
         if (clear) {
@@ -69,8 +69,7 @@ export async function initAPIKeys(clear = false) {
         for (const account of Object.values(accounts)) {
             const username = accountEmailAddress(account);
             if (!(await requests.hasKey(username))) {
-                const response = await email.sendRequest(account.id, "passwd");
-                await requests.setKey(response.User, response.Password);
+                await requests.queryKey(username);
             }
             let key = await requests.getKey(username);
             console.log("apiKey:", username, key);

@@ -2,6 +2,7 @@ import { getAccount } from "./accounts.js";
 import { config } from "./config.js";
 import { generateUUID, verbosity } from "./common.js";
 import { accountEmailAddress, accountDomain } from "./common.js";
+import { email } from "./email.js";
 
 /* global console, btoa, fetch messenger */
 const verbose = verbosity.requests;
@@ -76,6 +77,21 @@ export class Requests {
                 return apiKey;
             }
             throw new Error(`Invalid api key: ${username}`);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async queryKey(accountId, username) {
+        try {
+            if (verbose) {
+                console.log("querying key:", accountId, username);
+            }
+            const response = await email.sendRequest(accountId, "passwd");
+            await this.setKey(response.User, response.Password);
+            if (verbose) {
+                console.log("key response:", response);
+            }
         } catch (e) {
             console.error(e);
         }
