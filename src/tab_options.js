@@ -3,7 +3,7 @@
 //
 
 import { Domains } from "./domains.js";
-import { differ, verbosity, domainAccount } from "./common.js";
+import { differ, verbosity, accountDomain } from "./common.js";
 import { config } from "./config.js";
 import { getAccounts } from "./accounts.js";
 
@@ -145,7 +145,7 @@ export class OptionsTab {
                 let queryAccountIds = new Map();
                 for (const account of Object.values(accounts)) {
                     for (const domain of Object.keys(this.pendingDomains)) {
-                        if (domainAccount(account) == domain) {
+                        if (accountDomain(account) == domain) {
                             queryAccountIds.set(account.id, true);
                         }
                     }
