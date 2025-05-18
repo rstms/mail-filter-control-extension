@@ -57,7 +57,7 @@ async function initialize(mode) {
     }
 }
 
-async function initAPIKeys(clear = false) {
+export async function initAPIKeys(clear = false) {
     try {
         const requests = new Requests();
         if (clear) {
