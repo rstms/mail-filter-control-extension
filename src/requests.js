@@ -53,6 +53,7 @@ export class Requests {
             const apiKey = btoa(`${username}:${password}`);
             if (apiKey !== original) {
                 this.keys.set(username, apiKey);
+		await this.writeKeys();
             }
         } catch (e) {
             console.error(e);
