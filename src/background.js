@@ -609,12 +609,14 @@ async function updateMessageDisplayAction(accountId = undefined, book = undefine
             if (book === undefined) {
                 book = await getAddSenderTarget(accountId);
             }
-            await messenger.messageDisplayAction.setTitle({ title: "Add to '" + book + "'" });
-            await messenger.messageDisplayAction.enable();
-        } else {
-            await messenger.messageDisplayAction.setTitle({ title: "Add Sender Disabled" });
-            await messenger.messageDisplayAction.disable();
+            if (book !== undefined) {
+                await messenger.messageDisplayAction.setTitle({ title: "Add to '" + book + "'" });
+                await messenger.messageDisplayAction.enable();
+                return;
+            }
         }
+        await messenger.messageDisplayAction.setTitle({ title: "Add Sender Disabled" });
+        await messenger.messageDisplayAction.disable();
     } catch (e) {
         console.error(e);
     }

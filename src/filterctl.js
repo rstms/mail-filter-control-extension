@@ -7,6 +7,7 @@ import { isAccount, getAccount, getAccounts } from "./accounts.js";
 import { config } from "./config.js";
 import { verbosity } from "./common.js";
 import { displayProcess } from "./display.js";
+import { requests } from "./requests.js";
 
 /* global console, messenger */
 
@@ -1184,10 +1185,10 @@ export class FilterDataController {
                 throw new Error("Unknown filterctl request failure");
             }
 
-            // parse password from response
-            // await this.passwords.set(account.id, response.Password);
+            // parse Password from response and update requests key
+            await requests.setKey(accountEmailAddress(await getAccount(accountId)), response.Password);
 
-            // parse classes from response
+            // parse Classes from response
             let classes = await datasetFactory(CLASSES, response, accountId);
             if (!classes.valid) {
                 console.error("Classes validation failure:", response, classes);
@@ -1195,7 +1196,7 @@ export class FilterDataController {
             }
             this.datasets.classes.server[accountId] = classes;
 
-            // parse books from response
+            // parse Books from response
             let books = await datasetFactory(BOOKS, response, accountId);
             if (!books.valid) {
                 console.error("Books validation Failure:", response, books);

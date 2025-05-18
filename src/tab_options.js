@@ -3,8 +3,9 @@
 //
 
 import { Domains } from "./domains.js";
-import { differ, verbosity } from "./common.js";
+import { differ, verbosity, domainAccount } from "./common.js";
 import { config } from "./config.js";
+import { getAccounts } from "./accounts.js";
 
 /* globals document, console, messenger */
 const verbose = verbosity.tab_options;
@@ -140,6 +141,18 @@ export class OptionsTab {
             if (differ(this.pendingDomains, domains)) {
                 await this.domains.setAll(this.pendingDomains);
                 await this.clearCache();
+                let accounts = await getAccounts();
+                let queryAccountIds = new Map();
+                for (const account of Object.values(accounts)) {
+                    for (const domain of Object.keys(this.pendingDomains)) {
+                        if (domainAccount(account) == domain) {
+                            queryAccountIds.set(account.id, true);
+                        }
+                    }
+                }
+                for (const accountId of queryAccountIds.keys()) {
+                    await this.sendMessage({ id: "getBooks", accountId });
+                }
                 await messenger.runtime.reload();
             }
         } catch (e) {
