@@ -143,7 +143,7 @@ export class OptionsTab {
                 await this.clearCache();
                 this.controls.domainsStack.innerHTML = "";
                 const label = document.createElement("label");
-                this.controls.appendChild(label);
+                this.controls.domainsStack.appendChild(label);
                 let accounts = await getAccounts();
                 let queryAccountIds = new Map();
                 for (const account of Object.values(accounts)) {
