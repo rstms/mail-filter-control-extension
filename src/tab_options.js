@@ -32,7 +32,6 @@ export class OptionsTab {
             const row = document.createElement("div");
             row.classList.add("form-check");
             row.id = "options-domain-row-" + index;
-            //console.log("row", index, row);
 
             const checkbox = document.createElement("input");
             checkbox.id = "options-domain-checkbox-" + index;
@@ -41,7 +40,6 @@ export class OptionsTab {
             checkbox.classList.add("form-check-input");
             checkbox.addEventListener("change", this.handlers.DomainCheckboxChange);
             row.appendChild(checkbox);
-            //console.log("checkbox", index, checkbox);
 
             const label = document.createElement("label");
             label.id = "options-domain-label-" + index;
@@ -49,7 +47,6 @@ export class OptionsTab {
             label.setAttribute("for", checkbox.id);
             label.textContent = domain;
             row.appendChild(label);
-            //console.log("label", index, label);
 
             return { row: row, checkbox: checkbox };
         } catch (e) {
@@ -74,7 +71,7 @@ export class OptionsTab {
     async populateDomains() {
         try {
             if (verbose) {
-                console.log("BEGIN populateOptionsAccounts");
+                console.debug("BEGIN populateOptionsAccounts");
             }
 
             this.showDomainsButtons(false);
@@ -86,7 +83,9 @@ export class OptionsTab {
             var index = 0;
             const domains = await this.domains.get({ refresh: true });
             for (const [domain, enabled] of Object.entries(domains)) {
-                console.log(index, domain, enabled);
+                if (verbose) {
+                    console.debug(index, domain, enabled);
+                }
                 const created = await this.createDomainRow(index, domain, enabled);
                 this.pendingDomains[domain] = enabled;
                 this.domainCheckbox[created.checkbox.id] = {
@@ -100,7 +99,7 @@ export class OptionsTab {
             await this.updateDomainsApplyButton();
 
             if (verbose) {
-                console.log("END populateOptionsAccounts");
+                console.debug("END populateOptionsAccounts");
             }
         } catch (e) {
             console.error(e);
@@ -111,11 +110,13 @@ export class OptionsTab {
         try {
             const domains = await this.domains.get({ refresh: true });
             const dirty = differ(this.pendingDomains, domains);
-            console.log("updateDomainsApplyButton:", {
-                dirty: dirty,
-                pending: this.pendingDomains,
-                account: domains,
-            });
+            if (verbose) {
+                console.debug("updateDomainsApplyButton:", {
+                    dirty: dirty,
+                    pending: this.pendingDomains,
+                    account: domains,
+                });
+            }
             this.showDomainsButtons(dirty);
         } catch (e) {
             console.error(e);
@@ -148,7 +149,9 @@ export class OptionsTab {
 
     async onDomainCheckboxChange(sender) {
         try {
-            console.log("onDomainCheckboxChange:", sender);
+            if (verbose) {
+                console.debug("onDomainCheckboxChange:", sender);
+            }
             const domain = this.domainCheckbox[sender.target.id].domain;
             const enabled = sender.target.checked;
             this.pendingDomains[domain] = enabled;

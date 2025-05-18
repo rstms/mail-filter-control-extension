@@ -799,7 +799,9 @@ export class FilterDataController {
         try {
             const enabled = config.local.getBool(config.local.key.filterctlCacheEnabled);
             if (enabled) {
-                console.warn("reading filterctl state from local storage");
+                if (verbose) {
+                    console.log("reading filterctl state from local storage");
+                }
                 let state = await this.validateState(await config.local.get(config.local.key.filterctlState));
                 this.datasets.classes.dirty = await this.initDatasets(CLASSES, state.classes.dirty);
                 this.datasets.classes.server = await this.initDatasets(CLASSES, state.classes.server);
@@ -816,7 +818,9 @@ export class FilterDataController {
         try {
             const enabled = config.local.getBool(config.local.key.filterctlCacheEnabled);
             if (enabled || flags.force) {
-                console.warn("writing filterctl state to local storage");
+                if (verbose) {
+                    console.log("writing filterctl state to local storage");
+                }
                 await config.local.set(config.local.key.filterctlState, await this.state());
             }
         } catch (e) {
@@ -870,11 +874,11 @@ export class FilterDataController {
             const accounts = await getAccounts();
             for (let [accountId, renderable] of Object.entries(substate)) {
                 if (typeof renderable !== "object") {
-                    console.debug("invalid state data", substate, state, accountId, renderable);
+                    console.error("invalid state data", substate, state, accountId, renderable);
                     throw new Error("invalid state data");
                 }
                 if (!Object.hasOwn(accounts, accountId)) {
-                    console.debug("invalid account in state", substate, state, accountId);
+                    console.error("invalid account in state", substate, state, accountId);
                     throw new Error("invalid state accountId");
                 }
             }
@@ -893,10 +897,10 @@ export class FilterDataController {
             for (const [accountId, renderable] of Object.entries(substate)) {
                 let dataset = await datasetFactory(type, renderable, accountId);
                 result[accountId] = dataset;
-                if (dataset.valid) {
+                if (!dataset.valid) {
                     console.warn(`initialized invalid ${type} from storage`);
-                    result[accountId] = dataset;
-                } else {
+                }
+                if (dataset.errors.length > 0) {
                     throw new Error(dataset.errors);
                 }
             }
@@ -932,7 +936,7 @@ export class FilterDataController {
                     throw new Error("invalid password in state password cache");
                 }
                 if (!Object.hasOwn(accounts, accountId)) {
-                    console.debug("invalid accountId in state password cache", accountId);
+                    console.error("invalid accountId in state password cache", accountId);
                     throw new Error("invalid accountId in state password cache");
                 }
             }
@@ -1088,8 +1092,6 @@ export class FilterDataController {
             let dirtySet = this.datasets[type].dirty;
             if (!Object.hasOwn(serverSet, accountId)) {
                 return undefined;
-                //FIXME: don't throw error if the caller is just asking if the account has unsaved changes
-                //throw new Error(type + " dataset not found for account " + account.name);
             }
             if (!Object.hasOwn(dirtySet, accountId)) {
                 return false;
@@ -1443,13 +1445,6 @@ export class FilterDataController {
                 delete this.datasets[type].dirty[accountId];
                 this.datasets[type].server[accountId] = await dataset.clone();
 
-                // FIXME: redundant test
-                let serverSet = this.datasets[type].server[accountId];
-                if (dataset.diff(serverSet)) {
-                    console.error("send: dataset mismatches server cache:", dataset, serverSet);
-                    throw new Error("Update response mismatch(2)");
-                }
-
                 return await this.datasetResult(
                     type,
                     accountId,
@@ -1636,12 +1631,12 @@ export class FilterDataController {
             await getAccount(accountId);
             delete this.datasets[BOOKS].server[accountId];
             delete this.datasets[BOOKS].dirty[accountId];
+            await config.session.set(config.session.key.reloadBooks, true);
         } catch (e) {
             console.error(e);
         }
     }
 
-    // FIXME: try doing this with carddav only
     async addSenderToFilterBook(accountId, senderAddress, bookName) {
         try {
             await getAccount(accountId);

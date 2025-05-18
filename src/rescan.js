@@ -2,6 +2,7 @@ import { verbosity, accountDomain } from "./common.js";
 import { config, updateActiveRescans } from "./config.js";
 import { initThemeSwitcher } from "./theme_switcher.js";
 import { displayEvent } from "./display.js";
+import { Requests } from "./requests.js";
 import { getAccounts } from "./accounts.js";
 
 /* globals console, document, messenger, setTimeout, clearTimeout, window */
@@ -18,6 +19,8 @@ let autoClose = true;
 
 let rescanStack = null;
 let rescanTemplate = null;
+
+const requests = new Requests();
 
 initThemeSwitcher();
 let reportedRescans = new Map();
@@ -121,11 +124,7 @@ async function refreshRescanStatus(allAccounts = false) {
         let accountIds = await refreshAccountIds(allAccounts);
         for (const accountId of accountIds) {
             try {
-                const response = await sendMessage({
-                    id: "sendCommand",
-                    accountId: accountId,
-                    command: "rescanstatus",
-                });
+                const response = await requests.get(accountId, "/rescan/");
                 if (verbose) {
                     console.debug("rescanstatus response:", accountId, response);
                 }
@@ -395,24 +394,6 @@ async function handleMessage(message, sender) {
         }
         console.error("unexpected message:", message);
         throw new Error("unexpected message:" + message.id);
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-async function sendMessage(message) {
-    try {
-        message.src = "rescan";
-        message.dst = "background";
-
-        if (verbose) {
-            console.debug("rescan.sendMessage:", message);
-        }
-        let result = await messenger.runtime.sendMessage(message);
-        if (verbose) {
-            console.debug("rescan.sendMessage returned:", result);
-        }
-        return result;
     } catch (e) {
         console.error(e);
     }

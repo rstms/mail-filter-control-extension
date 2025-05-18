@@ -1,9 +1,10 @@
 import { getAccount } from "./accounts.js";
 import { config } from "./config.js";
-import { generateUUID } from "./common.js";
+import { generateUUID, verbosity } from "./common.js";
 import { accountEmailAddress, accountDomain } from "./common.js";
 
 /* global console, btoa, fetch */
+const verbose = verbosity.requests;
 
 export class Requests {
     constructor() {
@@ -48,8 +49,18 @@ export class Requests {
             const apiKey = btoa(`${username}:${password}`);
             if (apiKey !== original) {
                 this.keys.set(username, apiKey);
-                await this.writeKeys();
             }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async hasKey(username) {
+        try {
+            if (this.keys === null || this.keys.has(username) === false) {
+                await this.readKeys();
+            }
+            return this.keys.has(username);
         } catch (e) {
             console.error(e);
         }
@@ -86,40 +97,42 @@ export class Requests {
             if (options.method === "POST") {
                 options.headers["Content-Type"] = "application/json";
             }
-            //let origin = await messenger.runtime.getURL("");
-            //console.log("origin:", origin);
             options.credentials = "include";
             options.cache = "no-cache";
             options.mode = "cors";
 
             const url = `https://webmail.${domain}/mailfilter${path}`;
-
-            console.log("<-- request:", url, options);
+            if (verbose) {
+                console.debug("<-- request:", url, options);
+            }
             const response = await fetch(url, options);
-            console.log("--> response:", this.beautify(response));
+            if (verbose) {
+                console.debug("--> response:", response);
+            }
             if (!response.ok) {
                 throw new Error(`request failed: ${response}`);
             }
             const result = await response.json();
-            console.log("result:", result);
+            if (verbose) {
+                console.log("request:", url, result);
+            }
             return result;
         } catch (e) {
             console.error(e);
         }
     }
 
-    beautify(response) {
-        try {
-            const parsed = JSON.parse(response);
-            return JSON.stringify(parsed, null, 2);
-        } catch {
-            return response;
-        }
-    }
-
     async get(accountId, path, id = null) {
         try {
             return await this.request(accountId, path, { method: "GET" }, id);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async delete(accountId, path, id = null) {
+        try {
+            return await this.request(accountId, path, { method: "DELETE" }, id);
         } catch (e) {
             console.error(e);
         }
@@ -137,6 +150,22 @@ export class Requests {
                 throw new Error("unexpected body type");
             }
             return await this.request(accountId, path, { method: "POST", body }, id);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    resetBody(args) {
+        try {
+            let levels = [];
+            for (let arg of args) {
+                let fields = arg.split("=");
+                levels.push({
+                    Name: fields[0],
+                    Score: parseFloat(fields[1]),
+                });
+            }
+            return { Classes: levels };
         } catch (e) {
             console.error(e);
         }

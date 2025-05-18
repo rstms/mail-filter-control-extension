@@ -6,10 +6,6 @@ import { Requests } from "./requests.js";
 
 /* global console, messenger, setTimeout, clearTimeout, setInterval, clearInterval, window */
 
-// FIXME: remove compose window if message send fails
-// FIXME: track the progress window
-// FIXME: track the error message popup dialog when send fails
-
 const verbose = verbosity.email;
 const logQueue = false;
 
@@ -125,7 +121,7 @@ class EmailRequest {
         this.rejectPromise(error);
     }
 
-    // FIXME: remove parameters from resolve -- they are only for sanity checks
+    // NOTE: resolve parameters are only used for sanity checks
     resolve(request, response) {
         try {
             console.assert(this === request, "resolve: request not this", request, this);
@@ -807,6 +803,7 @@ class EmailController {
 
     async sendRequest(accountId, commandLine, body = undefined, timeout = undefined) {
         try {
+            const requests = new Requests();
             const id = generateUUID();
             let args = commandLine.split(" ");
             const command = args.shift();
@@ -814,22 +811,21 @@ class EmailController {
                 case "passwd":
                     break;
                 case "dump":
-                    return await this.cmdUserDump(id, accountId, command, args, body, timeout);
+                    return await requests.get(accountId, "/userdump/", id);
                 case "reset":
-                    break;
+                    return await requests.post(accountId, "/classes/", requests.resetBody(args), id);
                 case "restore":
-                    break;
+                    return this.compareCommand(id, accountId, command, args, body, timeout);
                 case "mkaddr":
-                    break;
+                    return await requests.post(accountId, "/address/", { Bookname: args[0], Address: args[1] }, id);
                 case "mkbook":
-                    return await this.cmdAddBook(id, accountId, command, args, body, timeout);
+                    return await requests.post(accountId, "/book/", { BookName: args[0] }, id);
                 case "rmbook":
-                    break;
+                    return await requests.delete(accountId, `/book/${args[0]}/`, id);
                 case "usage":
                     break;
                 default:
-                    console.error("unexpected command:", { accountId, command, body, timeout });
-                    throw new Error(`unexpected command: ${command}`);
+                    console.warn("unexpected command:", { accountId, command, body, timeout });
             }
             return await this.sendEmailRequest(id, accountId, commandLine, body, timeout);
         } catch (e) {
@@ -837,25 +833,10 @@ class EmailController {
         }
     }
 
-    async cmdUserDump(id, accountId, command, args, body, timeout) {
+    async compareCommand(id, accountId, command, args, body, timeout) {
         try {
             const requests = new Requests();
-            let result = await requests.get(accountId, "/userdump/", id);
-
-            let commandLine = command + " " + args.join(" ");
-            let emailResult = await this.sendEmailRequest(id, accountId, commandLine, body, timeout);
-
-            console.log(differ(result, emailResult), { result, emailResult });
-            return emailResult;
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    async cmdAddBook(id, accountId, command, args, body, timeout) {
-        try {
-            const requests = new Requests();
-            let result = await requests.post(accountId, "/book/", { BookName: args[0] }, id);
+            let result = await requests.post(accountId, "/restore/", body, id);
 
             let commandLine = command + " " + args.join(" ");
             let emailResult = await this.sendEmailRequest(id, accountId, commandLine, body, timeout);

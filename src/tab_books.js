@@ -4,6 +4,7 @@
 
 import { Books, booksFactory, validateBookName } from "./filterctl.js";
 import { accountEmailAddress, isValidBookName, verbosity } from "./common.js";
+import { config } from "./config.js";
 import { getAccount, getAccounts, getSelectedAccount } from "./accounts.js";
 
 /* globals console, document, messenger */
@@ -97,6 +98,10 @@ export class BooksTab {
 
             if (!disableStatusPrompt) {
                 await this.setStatus("Requesting FilterBooks refresh...", "FilterBooks request failed");
+            }
+            if (await config.session.getBool(config.session.key.reloadBooks)) {
+                await config.session.remove(config.session.key.reloadBooks);
+                flags.force = true;
             }
             const response = await this.sendMessage({
                 id: "getBooks",
@@ -194,28 +199,31 @@ export class BooksTab {
         }
     }
 
-    async enableControls(enabled) {
+    async enableControls(enabled, empty) {
         try {
-            let names = [
-                "accountSelect",
-                "bookSelect",
-                "addressesButton",
-                "addressesMenu",
-                "addSenderButton",
-                "addSenderMenu",
-                "addInput",
-                "deleteInput",
-                "connectionsDropdown",
-                "table",
-                "scanButton",
-                "disconnectButton",
-            ];
-
-            for (const name of names) {
-                this.controls[name].disabled = !enabled;
+            let names = {
+                accountSelect: false,
+                bookSelect: true,
+                addressesButton: true,
+                addressesMenu: true,
+                addSenderButton: true,
+                addSenderMenu: true,
+                addInput: false,
+                deleteInput: true,
+                connectionsDropdown: false,
+                table: false,
+                scanButton: false,
+                disconnectButton: false,
+            };
+            for (const [name, disableWhenEmpty] of Object.entries(names)) {
+                let state = enabled;
+                if (empty && disableWhenEmpty) {
+                    state = false;
+                }
+                this.controls[name].disabled = !state;
             }
             this.enableAddButton(enabled);
-            this.enableDeleteButton(enabled);
+            this.enableDeleteButton(empty ? false : enabled);
         } catch (e) {
             console.error(e);
         }
@@ -307,7 +315,7 @@ export class BooksTab {
                 console.debug("populate: books:", this.books);
             }
             await this.populateBooks();
-            await this.enableControls(true);
+            await this.enableControls(true, books.books.size === 0);
         } catch (e) {
             console.error(e);
         }
@@ -383,7 +391,11 @@ export class BooksTab {
                 let response = await this.sendMessage({ id: "getAddSenderTarget", accountId: this.account.id });
                 bookName = response.result;
             }
-            this.controls.addSenderSpan.innerHTML = " " + bookName + " ";
+            if (typeof bookName === "string" && bookName !== "") {
+                this.controls.addSenderSpan.innerHTML = " " + bookName + " ";
+            } else {
+                this.controls.addSenderSpan.innerHTML = "";
+            }
         } catch (e) {
             console.error(e);
         }
@@ -851,7 +863,13 @@ export class BooksTab {
             if (verbose) {
                 console.debug("onAddressesClick");
             }
-            this.populateDropdown(this.controls.addressesMenu, this.books.addresses(this.selectedBook()));
+            await this.populateDropdown(this.controls.addressesMenu, ["Refreshing..."]);
+            await this.getBooks({ force: true, noPrompt: true });
+            let addresses = this.books.addresses(this.selectedBook());
+            if (addresses.length === 0) {
+                addresses = ["(No addresses)"];
+            }
+            await this.populateDropdown(this.controls.addressesMenu, addresses);
         } catch (e) {
             console.error(e);
         }
@@ -862,7 +880,7 @@ export class BooksTab {
             if (verbose) {
                 console.debug("onAddSenderClick");
             }
-            this.populateDropdown(this.controls.addSenderMenu, this.books.names());
+            await this.populateDropdown(this.controls.addSenderMenu, this.books.names());
         } catch (e) {
             console.error(e);
         }

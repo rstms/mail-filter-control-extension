@@ -272,6 +272,9 @@ class ConfigSession extends ConfigBase {
             // auto-open on reload flags
             "autoOpenOptions",
             "autoOpenEditor",
+
+            // flags for editor tabs
+            "reloadBooks",
         ]);
     }
 }

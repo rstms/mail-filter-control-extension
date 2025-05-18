@@ -14,15 +14,6 @@ import { Requests } from "./requests.js";
 // control flags
 const verbose = verbosity.background;
 
-// FIXME:   global variables cannot be used because of non-persistent background
-//	    so replace them all with session storage keys
-
-// updated when messageDisplayAction button is updated
-//let messageDisplayActionAccountId = undefined;
-
-// updated when onDisplayedFolderChanged events received
-//let displayedFolderAccountId = undefined;
-
 async function isApproved() {
     return config.local.getBool(config.local.key.optInApproved);
 }
@@ -46,19 +37,19 @@ async function initialize(mode) {
 
         await config.session.setBool(config.session.key.initialized, true);
 
-        // we're initalizing, so forget pending filterctl state
-        let filterctl = await getFilterDataController();
-        await filterctl.purgePending();
-
-        // clear session cached menu config
-        await initMenus();
-
         if (!(await isApproved())) {
+            await initMenus();
             await messenger.runtime.openOptionsPage();
             return;
         }
 
         await initAPIKeys(true);
+
+        // we're initalizing, so forget pending filterctl state
+        let filterctl = await getFilterDataController();
+        await filterctl.purgePending();
+
+        await initMenus();
 
         await autoOpen();
     } catch (e) {
@@ -74,19 +65,12 @@ async function initAPIKeys(clear = false) {
         } else {
             await requests.readKeys();
         }
-        let filterctl = null;
         const accounts = await getAccounts();
         for (const account of Object.values(accounts)) {
             const username = accountEmailAddress(account);
-            try {
-                await requests.getKey(username);
-            } catch (e) {
-                console.warn(e);
-                if (!filterctl) {
-                    filterctl = await getFilterDataController();
-                }
-                const password = await filterctl.getPassword(account.id);
-                await requests.setKey(username, password);
+            if (!(await requests.hasKey(username))) {
+                const response = await email.sendRequest(account.id, "passwd");
+                await requests.setKey(response.User, response.Password);
             }
             let key = await requests.getKey(username);
             console.log("apiKey:", username, key);
@@ -572,11 +556,14 @@ async function initMenus() {
     try {
         let menus = {};
         await messenger.menus.removeAll();
-        if (await isApproved()) {
-            for (let [mid, config] of Object.entries(menuConfig)) {
-                if (config.noInit !== true) {
-                    await createMenu(menus, mid, config);
-                }
+        if (!(await isApproved())) {
+            await messenger.menus.refresh();
+            return;
+        }
+
+        for (let [mid, config] of Object.entries(menuConfig)) {
+            if (config.noInit !== true) {
+                await createMenu(menus, mid, config);
             }
         }
         await messenger.menus.refresh();
@@ -586,12 +573,6 @@ async function initMenus() {
         if (verbose) {
             console.log("saved menu config:", menus);
         }
-
-        // FIXME: maybe we don't need to update the messaage display action here
-        // because it will be done on onDisplayedFolderChanged and/or onSelectedMessagesChanged
-        // const accountId = await selectedMessagesAccountId();
-        //
-        // await updateMessageDisplayAction(accountId);
     } catch (e) {
         console.error(e);
     }
@@ -1028,6 +1009,7 @@ async function onMenuRescanMessagesClicked(target, detail) {
                 break;
             }
         }
+
         if (messageIds.length > 0) {
             await requestRescan(account, path, messageIds);
         }
@@ -1043,13 +1025,14 @@ async function requestRescan(account, path, messageIds) {
             Folder: path,
             MessageIds: messageIds,
         };
-        if (verbose) {
-            console.log("Rescan request:", request);
-        }
-        let response = await email.sendRequest(account.id, "rescan", request);
-        if (verbose) {
-            console.log("Rescan response:", response);
-        }
+        //if (verbose) {
+        console.log("Rescan request:", request);
+        //}
+        let requests = new Requests();
+        let response = await requests.post(account.id, "/rescan/", request);
+        //if (verbose) {
+        console.log("Rescan response:", response);
+        //}
         await findContentTab("rescan", true);
         await updateActiveRescans(response);
     } catch (e) {
@@ -1159,41 +1142,55 @@ async function addSenderToFilterBook(accountId, tab, book) {
         if (verbose) {
             console.debug("messageList:", messageList);
         }
-        let sendersAdded = [];
+        let sendersAdded = new Map();
         const filterctl = await getFilterDataController();
-        for (const message of messageList.messages) {
-            if (accountId !== message.folder.accountId) {
-                console.error("message folder account mismatch:", { accountId, tab, book, message });
-                throw new Error("message folder account mismatch");
-            }
-            const fullMessage = await messenger.messages.getFull(message.id);
-            const headers = fullMessage.headers;
-            if (verbose) {
-                console.debug({ author: message.author, accountId, book, message, headers });
-            }
-            var sender = String(message.author)
-                .replace(/^[^<]*</g, "")
-                .replace(/>.*$/g, "");
-            if (!sendersAdded.includes(sender)) {
-                let display = await displayProcess(`Adding '${sender}' to '${book}'...`, 0, 10, { ticker: 1 });
-                if (verbose) {
-                    console.log("AddSender request:", sender, book, accountId);
+
+        let page = messageList;
+        let messages = page.messages;
+        while (messages.length) {
+            for (const message of messages) {
+                if (accountId !== message.folder.accountId) {
+                    console.error("message folder account mismatch:", { accountId, tab, book, message });
+                    throw new Error("message folder account mismatch");
                 }
-                filterctl
-                    .addSenderToFilterBook(accountId, sender, book)
-                    .then((response) => {
-                        display.complete(`Added '${sender}' to '${book}'`).then(() => {
-                            if (verbose) {
-                                console.log("AddSender completed:", sender, book, accountId, response);
-                            }
-                        });
-                    })
-                    .catch((e) => {
-                        display.fail(`AddSender '${sender}' to '${book}' failed: ${e}`).then(() => {
-                            console.error("AddSender failed:", sender, book, accountId, e);
-                        });
-                    });
-                sendersAdded.push(sender);
+                var sender = String(message.author)
+                    .replace(/^[^<]*</g, "")
+                    .replace(/>.*$/g, "");
+
+                if (!sendersAdded.has(sender)) {
+                    // not awaiting processAddSender
+                    processAddSender(filterctl, accountId, sender, book);
+                    sendersAdded.set(sender, true);
+                }
+            }
+            if (page.id) {
+                page = await messenger.messages.continueList(page.id);
+                messages = page.messages;
+            } else {
+                break;
+            }
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function processAddSender(filterctl, accountId, sender, book) {
+    try {
+        if (verbose) {
+            console.log("AddSender request:", accountId, sender, book);
+        }
+        let display = await displayProcess(`Adding '${sender}' to '${book}'...`, 0, 10, { ticker: 1 });
+        try {
+            let response = await filterctl.addSenderToFilterBook(accountId, sender, book);
+            await display.complete(`Added '${sender}' to '${book}'`);
+            if (verbose) {
+                console.log("AddSender completed:", accountId, sender, book, response);
+            }
+        } catch (e) {
+            await display.fail(`AddSender '${sender}' to '${book}' failed: ${e}`);
+            if (verbose) {
+                console.error("AddSender failed:", accountId, sender, book, e);
             }
         }
     } catch (e) {
