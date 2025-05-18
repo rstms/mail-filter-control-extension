@@ -3,7 +3,7 @@
 //
 
 import { Domains } from "./domains.js";
-import { differ, verbosity, accountDomain } from "./common.js";
+import { differ, verbosity, accountDomain, accountEmailAddress } from "./common.js";
 import { config } from "./config.js";
 import { getAccounts } from "./accounts.js";
 
@@ -141,18 +141,23 @@ export class OptionsTab {
             if (differ(this.pendingDomains, domains)) {
                 await this.domains.setAll(this.pendingDomains);
                 await this.clearCache();
+                this.controls.domainsStack.innerHTML = "";
+                const label = document.createElement("label");
+                this.controls.appendChild(label);
                 let accounts = await getAccounts();
                 let queryAccountIds = new Map();
                 for (const account of Object.values(accounts)) {
                     for (const domain of Object.keys(this.pendingDomains)) {
                         if (accountDomain(account) == domain) {
-                            queryAccountIds.set(account.id, true);
+                            queryAccountIds.set(account.id, accountEmailAddress(account));
                         }
                     }
                 }
-                for (const accountId of queryAccountIds.keys()) {
+                for (const [accountId, username] of queryAccountIds.entries()) {
+                    label.textContent = `Requesting data for '${username}'...`;
                     await this.sendMessage({ id: "getBooks", accountId });
                 }
+                label.textContent = "Reloading extension...";
                 await messenger.runtime.reload();
             }
         } catch (e) {
