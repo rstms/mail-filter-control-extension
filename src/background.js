@@ -1607,7 +1607,7 @@ async function autoOpen() {
 async function onLoad() {
     try {
         console.warn("onLoad");
-	await initAPIKeys();
+        await initAPIKeys();
         await autoOpen();
     } catch (e) {
         console.error(e);
