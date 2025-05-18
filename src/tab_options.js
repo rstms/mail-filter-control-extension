@@ -206,6 +206,7 @@ export class OptionsTab {
     async clearCache() {
         try {
             await config.local.remove(config.local.key.filterctlState);
+            await config.local.remove(config.local.key.apiKeys);
         } catch (e) {
             console.error(e);
         }
@@ -214,7 +215,7 @@ export class OptionsTab {
     async onClearCacheClick() {
         try {
             await this.clearCache();
-            await config.session.setBool(config.session.key.autoOpenEditor, true);
+            await config.local.setBool(config.local.key.cacheCleared, true);
             await messenger.runtime.reload();
         } catch (e) {
             console.error(e);

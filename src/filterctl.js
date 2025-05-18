@@ -1631,7 +1631,7 @@ export class FilterDataController {
             await getAccount(accountId);
             delete this.datasets[BOOKS].server[accountId];
             delete this.datasets[BOOKS].dirty[accountId];
-            await config.session.set(config.session.key.reloadBooks, true);
+            await config.session.setBool(config.session.key.reloadBooks, true);
         } catch (e) {
             console.error(e);
         }

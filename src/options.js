@@ -15,7 +15,7 @@ async function saveOptions(sender) {
         await config.local.reset();
         await config.session.reset();
         await config.local.setBool(config.local.key.optInApproved, checked);
-        await config.session.setBool(config.session.key.autoOpenOptions, true);
+        await config.local.setBool(config.local.key.autoOpenOptions, true);
         await messenger.runtime.reload();
     } catch (e) {
         console.error(e);
@@ -27,7 +27,7 @@ async function restoreOptions() {
         var checked = await config.local.getBool(config.local.key.optInApproved);
         document.querySelector(optInCheckboxId).checked = checked;
         await enableButton(checked);
-        await config.session.remove(config.session.key.autoOpenOptions);
+        await config.local.remove(config.local.key.autoOpenOptions);
     } catch (e) {
         console.error(e);
     }

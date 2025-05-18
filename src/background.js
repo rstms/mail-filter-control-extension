@@ -1592,13 +1592,16 @@ async function onSelectedMessagesChanged(tab, selectedMessages) {
 
 async function autoOpen() {
     try {
-        let autoOptions = await config.session.getBool(config.session.key.autoOpenOptions);
-        await config.session.remove(config.session.key.autoOpenOptions);
-        let autoEditor = await config.session.getBool(config.session.key.autoOpenEditor);
-        await config.session.remove(config.session.key.autoOpenEditor);
+        let cacheCleared = await config.local.getBool(config.local.key.cacheCleared);
+        await config.session.remove(config.local.key.cacheCleared);
+
+        let autoOptions = await config.local.getBool(config.local.key.autoOpenOptions);
+        await config.session.remove(config.local.key.autoOpenOptions);
+
         if (autoOptions === true) {
             await messenger.runtime.openOptionsPage();
-        } else if (autoEditor === true) {
+        } else if (cacheCleared === true) {
+            await initAPIKeys();
             await focusEditorWindow();
         }
     } catch (e) {

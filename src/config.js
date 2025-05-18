@@ -253,6 +253,10 @@ class ConfigLocal extends ConfigBase {
             "rescanTitle",
             "preferredTheme",
             "apiKeys",
+
+            // auto-open on reload flags
+            "autoOpenOptions",
+            "cacheCleared",
         ]);
     }
 }
@@ -268,10 +272,6 @@ class ConfigSession extends ConfigBase {
 
             // rescan status
             "activeRescans",
-
-            // auto-open on reload flags
-            "autoOpenOptions",
-            "autoOpenEditor",
 
             // flags for editor tabs
             "reloadBooks",
