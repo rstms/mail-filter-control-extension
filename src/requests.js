@@ -97,7 +97,7 @@ export class Requests {
                 options.headers = {};
             }
             if (!(await this.hasKey(username))) {
-                let background = await messenger.getBackgroundPage();
+                let background = await messenger.runtime.getBackgroundPage();
                 await background.initAPIKeys();
             }
             options.headers["X-Api-Key"] = await this.getKey(username);
