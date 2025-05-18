@@ -39,6 +39,7 @@
     "https://webmail.citybestmanagement.com/mailfilter/*"
   ],
   "permissions": [
+    "addressBooks",
     "accountsRead",
     "compose",
     "compose.send",
