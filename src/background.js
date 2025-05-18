@@ -1593,10 +1593,10 @@ async function onSelectedMessagesChanged(tab, selectedMessages) {
 async function autoOpen() {
     try {
         let cacheCleared = await config.local.getBool(config.local.key.cacheCleared);
-        await config.session.remove(config.local.key.cacheCleared);
+        await config.local.remove(config.local.key.cacheCleared);
 
         let autoOptions = await config.local.getBool(config.local.key.autoOpenOptions);
-        await config.session.remove(config.local.key.autoOpenOptions);
+        await config.local.remove(config.local.key.autoOpenOptions);
 
         if (autoOptions === true) {
             await messenger.runtime.openOptionsPage();
