@@ -229,6 +229,7 @@ export class OptionsTab {
         try {
             await config.local.remove(config.local.key.filterctlState);
             await config.local.remove(config.local.key.apiKeys);
+            await config.session.remove(config.session.key.menuConfig);
         } catch (e) {
             console.error(e);
         }
