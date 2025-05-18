@@ -96,6 +96,10 @@ export class Requests {
             if (!Object.hasOwn(options, "headers")) {
                 options.headers = {};
             }
+            if (!(await this.hasKey(username))) {
+                let background = await messenger.getBackgroundPage();
+                await background.initAPIKeys();
+            }
             options.headers["X-Api-Key"] = await this.getKey(username);
             options.headers["X-Request-Id"] = id;
             if (options.method === "POST") {
