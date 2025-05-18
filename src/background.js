@@ -548,6 +548,7 @@ async function getMenus() {
 // reset menu configuration from menu config data structure
 async function initMenus() {
     try {
+        console.log("initMenus");
         let menus = {};
         await messenger.menus.removeAll();
         let clearMenu = false;
@@ -559,6 +560,7 @@ async function initMenus() {
             clearMenu = true;
         }
         if (clearMenu) {
+            console.log("initMenus: cleared");
             await messenger.menus.refresh();
             return;
         }
