@@ -5,7 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no" />
         <title>Mail Filter Control</title>
         <link rel="stylesheet" href="assets/bootstrap/css/bootstrap.min.css?h=2a67f89353a72f7ee4500027c27d0b66" />
-        <link rel="stylesheet" href="assets/css/Source%20Sans%20Pro.css?h=4edaf689ab8bd3575323096810375b2f" />
+        <link rel="stylesheet" href="assets/css/Source%20Sans%20Pro.css?h=891cbb0450d4cbd1d1b8962a820e6d3e" />
         <link rel="stylesheet" href="chrome://messenger/skin/shared/common.css" />
         <script type="module" src="./src/editor.js"></script>
     </head>
@@ -387,14 +387,14 @@
                                                 <a
                                                     class="btn btn-secondary btn-small"
                                                     data-bs-toggle="collapse"
-                                                    aria-expanded="false"
+                                                    aria-expanded="true"
                                                     aria-controls="collapse-2"
                                                     href="#collapse-2"
                                                     role="button"
                                                     id="books-connections-dropdown"
                                                     >Show CardDAV Address Book Connections</a
                                                 >
-                                                <div class="collapse" id="collapse-2">
+                                                <div class="collapse show" id="collapse-2">
                                                     <div class="vstack gap-1 border rounded-0" style="padding: 10px">
                                                         <div class="table-responsive" id="books-connections-table">
                                                             <table class="table table-bordered">
@@ -485,7 +485,13 @@
                                                                 id="books-connections-disconnect-button"
                                                                 type="button"
                                                             >
-                                                                Disconnect All
+                                                                Disconnect All</button
+                                                            ><button
+                                                                class="btn btn-primary btn-sm"
+                                                                id="books-connections-addressbook-button"
+                                                                type="button"
+                                                            >
+                                                                Address Books
                                                             </button>
                                                         </div>
                                                     </div>

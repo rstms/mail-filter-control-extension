@@ -832,6 +832,9 @@ addTabControl(tab.books, "scanButton", "books-connections-scan-button", "click",
 addTabControl(tab.books, "disconnectButton", "books-connections-disconnect-button", "click", () => {
     tab.books.onDisconnectClick();
 });
+addTabControl(tab.books, "addressBookButton", "books-connections-addressbook-button", "click", () => {
+    tab.books.onAddressBookClick();
+});
 
 addTabControl(tab.books, "connectionsDropdown", "books-connections-dropdown");
 

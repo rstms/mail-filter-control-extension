@@ -935,6 +935,18 @@ export class BooksTab {
         }
     }
 
+    // address book button
+    async onAddressBookClick() {
+        try {
+            if (verbose) {
+                console.debug("onAddressBookClick");
+            }
+            await messenger.addressBooks.openUI();
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
     async onAddInputKeyup() {
         try {
             this.validateBookName(this.controls.addInput.value.trim());
