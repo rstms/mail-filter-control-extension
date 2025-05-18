@@ -12,7 +12,7 @@ export const verbosity = {
     filterctl: false,
     ports: false,
     rescan: false,
-    requests: false,
+    requests: true,
     tab_advanced: false,
     tab_books: false,
     tab_classes: false,

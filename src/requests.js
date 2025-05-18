@@ -3,7 +3,7 @@ import { config } from "./config.js";
 import { generateUUID, verbosity } from "./common.js";
 import { accountEmailAddress, accountDomain } from "./common.js";
 
-/* global console, btoa, fetch */
+/* global console, btoa, fetch messenger */
 const verbose = verbosity.requests;
 
 export class Requests {
@@ -83,6 +83,10 @@ export class Requests {
 
     async request(accountId, path, options = {}, id = null) {
         try {
+            if (verbose) {
+                let origin = await messenger.runtime.getURL("/");
+                console.debug("origin:", origin);
+            }
             const account = await getAccount(accountId);
             const username = accountEmailAddress(account);
             const domain = accountDomain(account);
