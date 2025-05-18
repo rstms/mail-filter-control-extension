@@ -37,6 +37,12 @@ async function initialize(mode) {
 
         await config.session.setBool(config.session.key.initialized, true);
 
+        // close editor tab if open
+        let tab = await findContentTab("editor", true);
+        if (tab) {
+            await messenger.tabs.remove(tab.id);
+        }
+
         if (!(await isApproved())) {
             await initMenus();
             await messenger.runtime.openOptionsPage();
