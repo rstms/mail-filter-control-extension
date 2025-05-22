@@ -1253,10 +1253,8 @@ async function addSenderAction(tab, bookIndex = "default") {
                 book = await getAddSenderTarget(accountId);
             } else {
                 const books = await getBookNames(accountId);
-                const indexed = books[parseInt(bookIndex) - 1];
-                if (indexed !== undefined) {
-                    book = indexed.name;
-                }
+                const index = parseInt(bookIndex) - 1;
+                book = books[index];
             }
             if (book !== undefined) {
                 await addSenderToFilterBook(accountId, tab, book);
