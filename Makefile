@@ -101,3 +101,7 @@ clean:
 	docker rmi prettier || true
 	rm -rf src/node_modules
 	rm -f release.zip
+
+distclean: clean
+	rm -f dist/*.xpi
+
