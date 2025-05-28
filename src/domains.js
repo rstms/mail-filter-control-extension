@@ -117,13 +117,20 @@ export class Domains {
 
     async all() {
         try {
-            let domains = {};
+            let domains = new Map();
+            let mailFilterDomains = new Map();
+            for (const domain of await config.local.get(config.local.key.mailFilterDomains)) {
+                mailFilterDomains.set(domain, true);
+            }
             for (const account of await messenger.accounts.list()) {
                 if (account.type === "imap") {
-                    domains[accountDomain(account)] = true;
+                    const domain = accountDomain(account);
+                    if (mailFilterDomains.has(domain)) {
+                        domains.set(accountDomain(account), true);
+                    }
                 }
             }
-            return Array.from(Object.keys(domains)).sort();
+            return Array.from(domains.keys()).sort();
         } catch (e) {
             console.error(e);
         }

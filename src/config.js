@@ -23,6 +23,17 @@ const DEFAULTS = {
     backgroundSend: true,
     addSenderFolderScan: true,
     autoFilterBooks: true,
+    mailFilterDomains: [
+        "rstms.net",
+        "mailcapsule.io",
+        "bootnotice.com",
+        "ozarkhomestead.com",
+        "komicollc.com",
+        "cypress-trading.com",
+        "harborstreetventures.net",
+        "greenbluffllc.com",
+        "citybestmanagement.com",
+    ],
 };
 
 class ConfigBase {
@@ -257,6 +268,7 @@ class ConfigLocal extends ConfigBase {
             "rescanTitle",
             "preferredTheme",
             "apiKeys",
+            "mailFilterDomains",
 
             // auto-open on reload flags
             "autoOpenOptions",
