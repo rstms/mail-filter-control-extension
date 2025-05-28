@@ -1,8 +1,8 @@
 {
   "addons": {
     "mail-filter-control-69bc8149-6b01-4c11-b35f-6d43b7f9f0d3@rstms.net": {
-      "version": "1.3.2",
-      "update_link": "https://github.com/rstms/mail-filter-control-extension/releases/download/v1.3.2/mail-filter-control-extension-1.3.2.xpi"
+      "version": "1.3.3",
+      "update_link": "https://github.com/rstms/mail-filter-control-extension/releases/download/v1.3.3/mail-filter-control-extension-1.3.3.xpi"
     }
   }
 }
