@@ -728,10 +728,10 @@ async function updateMessageDisplayAction(accountId = undefined) {
             }
         }
         const approved = await isApproved();
-	if (!approved) {
-	    // set accountId to undefined to disable button when not approved
-	    accountId = undefined;
-	}
+        if (!approved) {
+            // set accountId to undefined to disable button when not approved
+            accountId = undefined;
+        }
         // save the accountId for use by message_display_action_menu onClicked
         await config.session.set(config.session.key.messageDisplayActionAccountId, accountId);
         if (approved && accountId !== undefined) {
