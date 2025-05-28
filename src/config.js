@@ -21,6 +21,8 @@ const DEFAULTS = {
     autoClearConsole: false,
     minimizeCompose: true,
     backgroundSend: true,
+    addSenderFolderScan: true,
+    autoFilterBooks: true,
 };
 
 class ConfigBase {
@@ -237,6 +239,8 @@ class ConfigLocal extends ConfigBase {
             "minimizeCompose",
             "backgroundSend",
             "filterctlCacheEnabled",
+            "addSenderFolderScan",
+            "autoFilterBooks",
 
             // response data caches
             "usageResponse",
@@ -275,7 +279,6 @@ class ConfigSession extends ConfigBase {
 
             // flags for editor tabs
             "reloadBooks",
-            "clearMenu",
         ]);
     }
 }

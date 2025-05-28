@@ -4,7 +4,7 @@ import { generateUUID, verbosity } from "./common.js";
 import { accountEmailAddress, accountDomain } from "./common.js";
 import { email } from "./email.js";
 
-/* global console, btoa, fetch messenger */
+/* global console, atob, btoa, fetch messenger */
 const verbose = verbosity.requests;
 
 export class Requests {
@@ -79,9 +79,26 @@ export class Requests {
             if (!(await this.hasKey(username))) {
                 await this.queryKey(accountId, username);
             }
-            const apiKey = this.keys.get(username);
-            if (typeof apiKey === "string" && apiKey.length > 0) {
-                return apiKey;
+            let failed = false;
+            let retry = false;
+            while (!failed) {
+                const apiKey = this.keys.get(username);
+                if (typeof apiKey === "string" && apiKey.length > 0) {
+                    let decoded = atob(apiKey);
+                    let fields = decoded.split(":");
+                    if (fields.length === 2 && fields[0].length > 0 && fields[1].length > 0) {
+                        return apiKey;
+                    }
+                }
+                if (retry) {
+                    failed = true;
+                } else {
+                    retry = true;
+                    console.warn(`Deleting invalid key: ${username} ${apiKey}`);
+                    this.keys.delete(username);
+                    await this.writeKeys();
+                    await this.queryKey(accountId, username);
+                }
             }
             throw new Error(`Invalid api key: ${username}`);
         } catch (e) {
@@ -136,12 +153,13 @@ export class Requests {
             if (verbose) {
                 console.debug("--> response:", response);
             }
-            if (!response.ok) {
-                throw new Error(`request failed: ${response}`);
-            }
             const result = await response.json();
             if (verbose) {
                 console.log("request:", url, result);
+            }
+            if (!response.ok) {
+                console.error("request failed:", { url, response, result });
+                throw new Error(`request failed: ${url} ${response}`);
             }
             return result;
         } catch (e) {

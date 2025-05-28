@@ -62,6 +62,8 @@ export class OptionsTab {
             this.controls.minimizeCompose.checked = await config.local.getBool(config.local.key.minimizeCompose);
             this.controls.backgroundSend.checked = await config.local.getBool(config.local.key.backgroundSend);
             this.controls.cacheResponses.checked = await config.local.getBool(config.local.key.filterctlCacheEnabled);
+            this.controls.addSenderFolderScan.checked = await config.local.getBool(config.local.key.addSenderFolderScan);
+            this.controls.autoFilterBooks.checked = await config.local.getBool(config.local.key.autoFilterBooks);
 
             await this.populateDomains();
         } catch (e) {
@@ -220,6 +222,22 @@ export class OptionsTab {
     async onBackgroundSendChange() {
         try {
             await config.local.setBool(config.local.key.backgroundSend, this.controls.backgroundSend.checked);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async onAddSenderFolderScanChange() {
+        try {
+            await config.local.setBool(config.local.key.addSenderFolderScan, this.controls.addSenderFolderScan.checked);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async onAutoFilterBooksChange() {
+        try {
+            await config.local.setBool(config.local.key.autoFilterBooks, this.controls.autoFilterBooks.checked);
         } catch (e) {
             console.error(e);
         }

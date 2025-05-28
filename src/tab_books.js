@@ -6,6 +6,7 @@ import { Books, booksFactory, validateBookName } from "./filterctl.js";
 import { accountEmailAddress, isValidBookName, verbosity } from "./common.js";
 import { config } from "./config.js";
 import { getAccount, getAccounts, getSelectedAccount } from "./accounts.js";
+import { isFolder, makeFilterBookFolder, getFolderByPath } from "./filterbook.js";
 
 /* globals console, document, messenger */
 
@@ -97,7 +98,7 @@ export class BooksTab {
             let disableStatusUpdate = flags.disableStatusUpdate === true;
 
             if (!disableStatusPrompt) {
-                await this.setStatus("Requesting FilterBooks refresh...", "FilterBooks request failed");
+                this.setStatus("Requesting FilterBooks refresh...", "FilterBooks request failed");
             }
             if (await config.session.getBool(config.session.key.reloadBooks)) {
                 await config.session.remove(config.session.key.reloadBooks);
@@ -139,7 +140,7 @@ export class BooksTab {
                 }
             }
             if (!disableStatusUpdate) {
-                await this.setStatus(response.message);
+                this.setStatus(response.message);
             }
             if (verbose) {
                 console.debug("handleResponse: returning:", books);
@@ -323,6 +324,8 @@ export class BooksTab {
 
     async populateBooks() {
         try {
+            // create FilterBooks folders for each book found if autoFilterBooks option is enabled
+            const createFolders = await config.local.getBool(config.local.key.autoFilterBooks);
             this.controls.bookSelect.innerHTML = "";
             this.booksIndex = {};
             let i = 0;
@@ -333,6 +336,10 @@ export class BooksTab {
                 const row = document.createElement("option");
                 row.textContent = name;
                 this.controls.bookSelect.appendChild(row);
+
+                if (createFolders) {
+                    await makeFilterBookFolder(this.account.id, name);
+                }
             }
             await this.selectBook();
         } catch (e) {
@@ -746,13 +753,14 @@ export class BooksTab {
     async addOrDeleteBook(command, prefix, control) {
         try {
             if (verbose) {
-                console.debug("onAddClick");
+                console.debug("addOrDeleteBook", command, prefix, control);
             }
             let bookName = control.value.trim();
             bookName = this.validateBookName(bookName);
             if (bookName === false) {
                 return;
             }
+
             this.enableConnectionSwitches(false);
             // we may be deleting the selected book
             if (bookName === this.selectedBook()) {
@@ -764,6 +772,28 @@ export class BooksTab {
             if (verbose) {
                 console.debug("addOrDeleteBook: response:", response);
             }
+
+            let autoFilterBooks = await config.local.getBool(config.local.key.autoFilterBooks);
+            if (command === "rmbook" && autoFilterBooks) {
+                // if we are deleting a book and autoFilterBooks option is enabled offer to delete the folder
+                const path = `/FilterBooks/${bookName}`;
+                if (await isFolder(this.account.id, path)) {
+                    let folder = await getFolderByPath(this.account.id, path);
+                    let info = await messenger.folders.getFolderInfo(folder.id);
+                    let count = info.totalMessageCount;
+                    let suffix = "s";
+                    if (count === 1) {
+                        suffix = "";
+                    }
+                    let message = `Do you want to delete the folder '${path}' containing ${count} message${suffix}?`;
+                    let confirmed = await messenger.servicesPrompt.confirm("Confirm FilterBook Folder Delete", message);
+                    if (confirmed) {
+                        await messenger.folders.delete(folder.id);
+                        console.log("deleted folder:", folder);
+                    }
+                }
+            }
+
             // force refresh filterctl because we changed the books
             await this.getBooks({ force: true, noPrompt: true });
             // tell background to initialize the menus

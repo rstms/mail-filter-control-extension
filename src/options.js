@@ -43,6 +43,8 @@ async function enableButton(checked) {
 }
 
 async function openEditor() {
+    // get the background page before sending in case it is sleeping
+    await messenger.runtime.getBackgroundPage();
     await messenger.runtime.sendMessage({ id: "focusEditorWindow", src: "options", dst: "background" });
 }
 

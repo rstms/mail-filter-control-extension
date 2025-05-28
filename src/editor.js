@@ -498,6 +498,8 @@ async function sendMessage(message) {
         if (verbose) {
             console.debug("editor.sendMessage:", message);
         }
+        // get the background page before sending in case it is sleeping
+        await messenger.runtime.getBackgroundPage();
         let result = await messenger.runtime.sendMessage(message);
         if (verbose) {
             console.debug("editor.sendMessage returned:", result);
@@ -858,6 +860,12 @@ addTabControl(tab.options, "backgroundSend", "options-background-send-checkbox",
 });
 addTabControl(tab.options, "cacheResponses", "options-cache-responses-checkbox", "change", () => {
     tab.options.onCacheResponsesChange();
+});
+addTabControl(tab.options, "addSenderFolderScan", "options-add-sender-folder-scan-checkbox", "change", () => {
+    tab.options.onAddSenderFolderScanChange();
+});
+addTabControl(tab.options, "autoFilterBooks", "options-auto-filter-books-checkbox", "change", () => {
+    tab.options.onAutoFilterBooks();
 });
 addTabControl(tab.options, "resetButton", "options-reset-button", "click", () => {
     tab.options.onResetClick();
