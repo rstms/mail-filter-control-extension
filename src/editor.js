@@ -865,7 +865,7 @@ addTabControl(tab.options, "addSenderFolderScan", "options-add-sender-folder-sca
     tab.options.onAddSenderFolderScanChange();
 });
 addTabControl(tab.options, "autoFilterBooks", "options-auto-filter-books-checkbox", "change", () => {
-    tab.options.onAutoFilterBooks();
+    tab.options.onAutoFilterBooksChange();
 });
 addTabControl(tab.options, "resetButton", "options-reset-button", "click", () => {
     tab.options.onResetClick();

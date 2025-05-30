@@ -9,9 +9,9 @@ import { Requests } from "./requests.js";
 const verbose = verbosity.email;
 const logQueue = false;
 
-const REQUEST_TIMEOUT_SECONDS = 30;
+const REQUEST_TIMEOUT_SECONDS = 60;
 const NO_TIMEOUT = 0;
-const RESPONSE_EXPIRE_SECONDS = 10;
+const RESPONSE_EXPIRE_SECONDS = 60;
 const RESPONSE_CHECK_INTERVAL = 1024;
 const AUTO_DELETE_EXPIRE_SECONDS = 15;
 
