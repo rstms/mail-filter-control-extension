@@ -1017,11 +1017,11 @@ export class BooksTab {
             const element = event.srcElement;
             const value = element.value.trim();
             if (value.length == 0) {
-                if (!/^[a-zA-Z]$/.test(key)) {
+                if (!/^[a-z]$/.test(key)) {
                     event.preventDefault();
                 }
             } else {
-                if (!/^[a-zA-Z0-9_-]$/.test(key)) {
+                if (!/^[a-z0-9_-]$/.test(key)) {
                     event.preventDefault();
                 }
             }

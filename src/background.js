@@ -1795,9 +1795,10 @@ async function onFolderCreated(createdFolder) {
             return;
         }
 
-        let bookName = isFilterBookFolder[1];
+        let bookName = isFilterBookFolder[1].toLowerCase();
 
         const bookNames = await getBookNames(accountId, true);
+
         if (!bookNames.includes(bookName)) {
             if (!isValidBookName(bookName)) {
                 let message = `FilterBook folder '${bookName}' is not a valid Filter Book name. A matching FilterBook can not be created, and the Mail Filter will not route messages to it.  Do you wish to delete this newly created folder?`;
@@ -1825,10 +1826,7 @@ async function onFolderDeleted(folder) {
         let enabled = await isAccount(accountId);
         let isFilterBook = folder.path.match(/^[/]FilterBooks[/]([^/][^/]*)$/);
         if (enabled && isFilterBook) {
-            let bookName = isFilterBook[1];
-            if (!isValidBookName(bookName)) {
-                throw new Error(`invalid FilterBook name: ${bookName}`);
-            }
+            let bookName = isFilterBook[1].toLowerCase();
             const bookNames = await getBookNames(accountId, true);
             if (bookNames.includes(bookName)) {
                 let message = `Do you want to delete FilterBook '${bookName}' including all sender addresses?`;
