@@ -1795,19 +1795,18 @@ async function onFolderCreated(createdFolder) {
             return;
         }
 
-        let name = isFilterBookFolder[1];
-        let bookName = name
-            .trim()
-            .toLowerCase()
-            .replaceAll(/[^a-zA-Z0-9_-]/g, "-");
-        if (!isValidBookName(bookName)) {
-            throw new Error(`invalid FilterBook name: ${bookName}`);
-        }
-        if (name !== bookName) {
-            await messenger.folders.rename(createdFolder.id, bookName);
-        }
+        let bookName = isFilterBookFolder[1];
+
         const bookNames = await getBookNames(accountId, true);
         if (!bookNames.includes(bookName)) {
+            if (!isValidBookName(bookName)) {
+                let message = `FilterBook folder '${bookName}' is not a valid Filter Book name. A matching FilterBook can not be created, and the Mail Filter will not route messages to it.  Do you wish to delete this newly created folder?`;
+                const confirmed = await messenger.servicesPrompt.confirm("Invalid FilterBook Name Format", message);
+                if (confirmed) {
+                    await messenger.folders.delete(createdFolder.id);
+                }
+                return;
+            }
             await closeEditor();
             let response = await email.sendRequest(accountId, "mkbook " + bookName);
             console.log("created FilterBook:", response);
