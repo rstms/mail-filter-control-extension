@@ -30,7 +30,7 @@ const DEFAULTS = {
         "ozarkhomestead.com",
         "komicollc.com",
         "cypress-trading.com",
-        "harborstreetventures.net",
+        "harborstreetventures.com",
         "greenbluffllc.com",
         "citybestmanagement.com",
     ],
