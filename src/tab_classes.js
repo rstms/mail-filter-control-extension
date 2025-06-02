@@ -17,10 +17,11 @@ const STEP_SCORE = 0.1;
 const STATUS_PENDING_TIMEOUT = 5120;
 
 export class ClassesTab {
-    constructor(disableEditorControl, sendMessage, enableTab, handlers) {
+    constructor(disableEditorControl, sendMessage, showToast, enableTab, handlers) {
         this.controls = {};
         this.disableEditorControl = disableEditorControl;
         this.sendMessage = sendMessage;
+        this.showToast = showToast;
         this.enableTab = enableTab;
         this.accounts = undefined;
         this.cellTemplate = null;
@@ -30,6 +31,7 @@ export class ClassesTab {
         this.classes = undefined;
         this.sliderMoveBuffer = null;
         this.sliderDrag = false;
+        this.toast = null;
     }
 
     async selectAccount(accountId) {
@@ -730,6 +732,7 @@ export class ClassesTab {
     async onSaveClick() {
         try {
             this.saveChanges();
+            await this.showToast("Classes Saved", "Spam Class values saved to mail server.");
         } catch (e) {
             console.error(e);
         }

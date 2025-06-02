@@ -8,7 +8,7 @@ import { AdvancedTab } from "./tab_advanced.js";
 import { HelpTab } from "./tab_help.js";
 import { getAccount, getAccounts, getSelectedAccount } from "./accounts.js";
 
-/* globals messenger, window, document, console, MutationObserver */
+/* globals bootstrap, messenger, window, document, console, MutationObserver */
 const verbose = verbosity.editor;
 
 initThemeSwitcher();
@@ -25,7 +25,7 @@ let accountIndex = {};
 let controls = {};
 
 let tab = {
-    classes: new ClassesTab(disableEditorControl, sendMessage, enableTab, {
+    classes: new ClassesTab(disableEditorControl, sendMessage, showToast, enableTab, {
         InputKeypress: onClassesInputKeypress,
         NameChanged: onClasessNameChanged,
         SliderMoved: onClassesSliderMoved,
@@ -33,7 +33,7 @@ let tab = {
         CellDelete: onClassesCellDelete,
         CellInsert: onClassesCellInsert,
     }),
-    books: new BooksTab(disableEditorControl, sendMessage, {
+    books: new BooksTab(disableEditorControl, sendMessage, showToast, {
         ConnectionChanged: onBooksConnectionChanged,
         InputKeypress: onBooksInputKeypress,
     }),
@@ -763,6 +763,21 @@ async function handleMessage(message, sender) {
                 return await tab.books.handleAddSenderTargetChanged(message);
         }
         throw new Error("editor received unexpected message:" + message.id);
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function showToast(title, message) {
+    try {
+        if (!this.toast) {
+            this.toast = new bootstrap.Toast(document.getElementById("class-toast"));
+        }
+        document.getElementById("class-toast-title").textContent = title;
+        let savedAt = new Date();
+        document.getElementById("class-toast-close-text").textContent = savedAt.toLocaleTimeString();
+        document.getElementById("class-toast-body").textContent = message;
+        this.toast.show();
     } catch (e) {
         console.error(e);
     }

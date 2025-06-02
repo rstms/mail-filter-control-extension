@@ -48,10 +48,11 @@ const dumpHTML = false;
 //const DROPDOWN_MENU_SUFFIX = "</a>";
 
 export class BooksTab {
-    constructor(disableEditorControl, sendMessage, handlers) {
+    constructor(disableEditorControl, sendMessage, showToast, handlers) {
         this.initialized = false;
         this.disableEditorControl = disableEditorControl;
         this.sendMessage = sendMessage;
+        this.showToast = showToast;
         this.handlers = handlers;
         this.controls = {};
         this.accounts = undefined;
@@ -774,22 +775,27 @@ export class BooksTab {
             }
 
             let autoFilterBooks = await config.local.getBool(config.local.key.autoFilterBooks);
-            if (command === "rmbook" && autoFilterBooks) {
-                // if we are deleting a book and autoFilterBooks option is enabled offer to delete the folder
-                const path = `/FilterBooks/${bookName}`;
-                if (await isFolder(this.account.id, path)) {
-                    let folder = await getFolderByPath(this.account.id, path);
-                    let info = await messenger.folders.getFolderInfo(folder.id);
-                    let count = info.totalMessageCount;
-                    let suffix = "s";
-                    if (count === 1) {
-                        suffix = "";
-                    }
-                    let message = `Do you want to delete the folder '${path}' containing ${count} message${suffix}?`;
-                    let confirmed = await messenger.servicesPrompt.confirm("Confirm FilterBook Folder Delete", message);
-                    if (confirmed) {
-                        await messenger.folders.delete(folder.id);
-                        console.log("deleted folder:", folder);
+            if (command === "mkbook") {
+                await this.showToast("New Filter Book Added", `Filter Book '${bookName}' created on CardDAV server.`);
+            } else if (command === "rmbook") {
+                await this.showToast("Filter Book Deleted", `Filter Book '${bookName}' deleted from CardDAV server.`);
+                if (autoFilterBooks) {
+                    // if we are deleting a book and autoFilterBooks option is enabled offer to delete the folder
+                    const path = `/FilterBooks/${bookName}`;
+                    if (await isFolder(this.account.id, path)) {
+                        let folder = await getFolderByPath(this.account.id, path);
+                        let info = await messenger.folders.getFolderInfo(folder.id);
+                        let count = info.totalMessageCount;
+                        let suffix = "s";
+                        if (count === 1) {
+                            suffix = "";
+                        }
+                        let message = `Do you want to delete the folder '${path}' containing ${count} message${suffix}?`;
+                        let confirmed = await messenger.servicesPrompt.confirm("Confirm FilterBook Folder Delete", message);
+                        if (confirmed) {
+                            await messenger.folders.delete(folder.id);
+                            console.log("deleted folder:", folder);
+                        }
                     }
                 }
             }

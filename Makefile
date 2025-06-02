@@ -2,7 +2,6 @@
 # thunderbird extension makefile
 
 project != basename $$(pwd)
-docker = env DOCKER_BUILD_OUTPUT=plain BUILDKIT_PROGRESS=plain docker
 gitclean = if git status --porcelain | grep '^.*$$'; then echo git status is dirty; false; else echo git status is clean; true; fi
 
 src = $(wildcard src/*.js) $(wildcard ./experiments/*/*.js)
@@ -46,40 +45,21 @@ assets: exported/assets
 %.html: exported/%.html
 	sed '/<script>/,/<\/script>/d' $< >$@
 
-fix: .eslint
-	fix -- docker run --rm -v "$$(pwd):/app" eslint fix src/*.js experiments/*/*.js
+fix: .fix
 
-lint-shell: .eslint 
-	docker run -it --rm -v "$$(pwd)/src:/app" eslint shell
+.fix: $(src)
+	fix eslint fix src/*.js experiments/*/*.js
 
-lint: .eslint 
-	docker run --rm -v "$$(pwd)/src:/app" eslint *.js
+lint: eslint.config.js
+	eslint src/*.js experiments/*/*.js
 
-eslint.config.js: .eslint
-	docker run -it --rm -v "$$(pwd)/src:/app" eslint config >$@
-
-shell:
-	docker run -it --rm -v "$$(pwd)/src:/app" eslint shell
-
-closure: .closure
-	docker run -it --rm -v "$$(pwd)/src:/app" closure shell
+eslint.config.js:
+	eslint config >$@
 
 fmt:	.fmt
 
-.fmt: .prettier $(src) $(html)
-	docker run --rm -v "$$(pwd):/app" prettier --tab-width 4 --print-width 135 --write "src/*.js" "*.html" "experiments/*/*.js"
-	touch $@
-
-.prettier: docker/prettier/Dockerfile
-	cd docker/prettier && $(docker) build . -t prettier
-	touch $@
-
-.eslint: docker/eslint/Dockerfile docker/eslint/entrypoint docker/eslint/eslint.config.js
-	cd docker/eslint && $(docker) build . -t eslint
-	touch $@
-
-.closure: docker/closure/Dockerfile  docker/closure/entrypoint
-	cd docker/closure && $(docker) build -t closure --build-arg USER=$(USER) --build-arg UID=$(shell id -u) --build-arg GID=$(shell id -g) .
+.fmt: fix $(html)
+	prettier --tab-width 4 --print-width 135 --write "src/*.js" "*.html" "experiments/*/*.js"
 	touch $@
 
 release_file = $(project)-$(version).xpi
