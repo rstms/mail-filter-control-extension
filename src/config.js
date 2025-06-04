@@ -291,6 +291,9 @@ class ConfigSession extends ConfigBase {
 
             // flags for editor tabs
             "reloadBooks",
+
+            // sieve_trace state
+            "sieveTrace",
         ]);
     }
 }

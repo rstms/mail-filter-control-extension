@@ -175,6 +175,14 @@ export class Requests {
         }
     }
 
+    async put(accountId, path, id = null) {
+        try {
+            return await this.request(accountId, path, { method: "PUT" }, id);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
     async delete(accountId, path, id = null) {
         try {
             return await this.request(accountId, path, { method: "DELETE" }, id);

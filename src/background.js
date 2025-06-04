@@ -63,6 +63,8 @@ async function initialize(mode) {
         // we've restarted so forget pending filterctl state
         let filterctl = await getFilterDataController();
         await filterctl.purgePending();
+        // and forget sieveTrace state
+        await config.session.remove(config.session.key.sieveTrace);
         await initMenus();
         await autoOpen();
     } catch (e) {
@@ -591,6 +593,17 @@ let menuConfig = {
         subId: "rmfTargetBook",
     },
 
+    rmfSieveTrace: {
+        properties: {
+            title: "Sieve Trace Enabled",
+            contexts: ["folder_pane"],
+            type: "checkbox",
+        },
+        onCreated: "onMenuCreatedSieveTrace",
+        onClicked: "onMenuClickedSieveTrace",
+        onShown: "onMenuShownSieveTrace",
+    },
+
     rmfTargetBook: {
         properties: {
             title: "__book__",
@@ -625,6 +638,15 @@ function getMenuHandler(handlerName) {
 
             case "onMenuRescanFolderClicked":
                 return onMenuRescanFolderClicked;
+
+            case "onMenuCreatedSieveTrace":
+                return onMenuCreatedSieveTrace;
+
+            case "onMenuClickedSieveTrace":
+                return onMenuClickedSieveTrace;
+
+            case "onMenuShownSieveTrace":
+                return onMenuShownSieveTrace;
         }
         throw new Error(`unknown menu handler: ${handlerName}`);
     } catch (e) {
@@ -1015,6 +1037,111 @@ function newBookMenuConfig(srcConfig, accountId, bookName, created) {
         config.properties.title = config.properties.title.replace(/__book__/, bookName);
         config.properties.contexts = created.properties.contexts;
         return config;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function getSieveTrace(accountId) {
+    try {
+        let sieveTrace = await config.session.get(config.session.key.sieveTrace);
+        if (!sieveTrace) {
+            sieveTrace = {};
+        }
+        if (Object.hasOwn(sieveTrace, accountId)) {
+            return sieveTrace[accountId] ? true : false;
+        }
+        let requests = new Requests();
+        let response = await requests.get(accountId, "/sieve/trace/");
+        if (!response.Success) {
+            throw new Error("sieve state request failed:", response);
+        }
+        sieveTrace[accountId] = response.Enabled;
+        await config.session.set(config.session.key.sieveTrace, sieveTrace);
+        return sieveTrace[accountId] ? true : false;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function setSieveTrace(accountId, enabled) {
+    try {
+        let action = enabled ? "Enabling" : "Disabling";
+        let account = await getAccount(accountId);
+        let email = accountEmailAddress(account);
+        let display = await displayProcess(`${action} Sieve Trace for ${email}...`, 0, 10, { ticker: 1 });
+        try {
+            let requests = new Requests();
+            var response;
+            if (enabled) {
+                response = await requests.put(accountId, "/sieve/trace/");
+            } else {
+                response = await requests.delete(accountId, "/sieve/trace/");
+            }
+            if (!response.Success) {
+                throw new Error("sieve state request failed:", response);
+            }
+            let sieveTrace = await config.session.get(config.session.key.sieveTrace);
+            if (!sieveTrace) {
+                sieveTrace = {};
+            }
+            sieveTrace[accountId] = response.Enabled;
+            await config.session.set(config.session.key.sieveTrace, sieveTrace);
+
+            action = enabled ? "Enabled" : "Disabled";
+            await display.complete(`${action} Sieve Trace for ${email}`);
+            if (verbose) {
+                console.log("setSieveTrace completed:", accountId, enabled);
+            }
+        } catch (e) {
+            await display.fail(`${action} Sieve Trace for ${email} failed: ${e}`);
+            console.error("setSieveTrace failed:", accountId, enabled, e);
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function onMenuCreatedSieveTrace(menus, created) {
+    try {
+        if (verbose) {
+            console.debug("onMenuCreatedSieveTrace:", created);
+        }
+        const accounts = await getAccounts();
+        for (const accountId of Object.keys(accounts)) {
+            await getSieveTrace(accountId);
+        }
+        return true;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function onMenuShownSieveTrace(target, detail) {
+    try {
+        if (verbose) {
+            console.debug("onMenuShownSieveTrace:", target.id, { target, detail });
+        }
+        let enabled = await getSieveTrace(detail.accountId);
+        await messenger.menus.update(target.id, { checked: enabled });
+        return true;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function onMenuClickedSieveTrace(target, detail) {
+    try {
+        if (verbose) {
+            console.log("onMenuClickedSieveTrace:", target.id, {
+                target,
+                detail,
+            });
+        }
+        let wasEnabled = await getSieveTrace(detail.accountId);
+        let isEnabled = !wasEnabled;
+        await setSieveTrace(detail.accountId, isEnabled);
+        await messenger.menus.update(target.id, { checked: isEnabled });
     } catch (e) {
         console.error(e);
     }
