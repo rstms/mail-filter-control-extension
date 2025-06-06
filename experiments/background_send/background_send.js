@@ -1,4 +1,4 @@
-/* global Components, console, ChromeUtils, MessageSend, Cc, Ci */
+/* global Components, ChromeUtils, MessageSend, Cc, Ci */
 
 var { ExtensionCommon } = ChromeUtils.import("resource://gre/modules/ExtensionCommon.jsm");
 var { MailServices } = ChromeUtils.import("resource:///modules/MailServices.jsm");
@@ -7,6 +7,7 @@ ChromeUtils.defineESModuleGetters(this, {
     MessageSend: "resource:///modules/MessageSend.sys.mjs",
 });
 
+// eslint-disable-next-line no-unused-vars
 var backgroundSend = class extends ExtensionCommon.ExtensionAPI {
     getAPI() {
         return {
@@ -134,4 +135,3 @@ var backgroundSend = class extends ExtensionCommon.ExtensionAPI {
         };
     }
 };
-console.log(backgroundSend);

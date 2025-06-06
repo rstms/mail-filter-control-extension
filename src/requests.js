@@ -111,8 +111,8 @@ export class Requests {
             if (verbose) {
                 console.log("querying key:", accountId, username);
             }
-            const response = await email.sendRequest(accountId, "passwd");
-            await this.setKey(response.User, response.Password);
+	    const credentials = await messenger.credentials.get(accountId);
+            await this.setKey(credentials.username, credentials.password);
             if (verbose) {
                 console.log("key response:", response);
             }

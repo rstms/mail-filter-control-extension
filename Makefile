@@ -25,6 +25,10 @@ all: $(html) $(src) $(json_fmt) fix .fmt lint assets
 	jq . <$< >$<.parsed && mv $<.parsed $<
 	touch $@
 
+experiments/credentials/.schema: experiments/credentials/schema.json
+	jq . <$< >$<.parsed && mv $<.parsed $<
+	touch $@
+
 experiments/carddav/.schema: experiments/carddav/schema.json
 	jq . <$< >$<.parsed && mv $<.parsed $<
 	touch $@

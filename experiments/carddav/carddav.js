@@ -11,6 +11,7 @@ ChromeUtils.defineESModuleGetters(this, {
 const NULL_BOOKS_RETRY_LIMIT = 3;
 const DETECT_BOOKS_RETRY_LIMIT = 5;
 
+// eslint-disable-next-line no-unused-vars
 var cardDAV = class extends ExtensionCommon.ExtensionAPI {
     getAPI() {
         return {
@@ -74,7 +75,7 @@ var cardDAV = class extends ExtensionCommon.ExtensionAPI {
                     return `${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20, 32)}`;
                 },
                 async list(username, password) {
-                    console.log("list:", username, password);
+                    //console.log("list:", username, password);
                     let bookNames = [];
                     let books = {};
                     let hostname = this.hostname(username);
@@ -82,7 +83,7 @@ var cardDAV = class extends ExtensionCommon.ExtensionAPI {
                     let matched = false;
                     while (!matched) {
                         let detected = await CardDAVUtils.detectAddressBooks(username, password, hostname, false);
-                        console.log("detected:", detected);
+                        //console.log("detected:", detected);
                         if (detected.length === 0) {
                             if (++tries >= NULL_BOOKS_RETRY_LIMIT) {
                                 matched = true;
@@ -125,11 +126,11 @@ var cardDAV = class extends ExtensionCommon.ExtensionAPI {
                     for (const name of bookNames) {
                         ret.push(books[name]);
                     }
-                    console.log("list returning:", ret);
+                    //console.log("list returning:", ret);
                     return ret;
                 },
                 async connect(username, password, token) {
-                    console.log("connect:", username, password, token);
+                    //console.log("connect:", username, password, token);
                     let result = {
                         username: username,
                         token: token,
@@ -137,7 +138,7 @@ var cardDAV = class extends ExtensionCommon.ExtensionAPI {
                     };
                     let serverBook = undefined;
                     let books = await CardDAVUtils.detectAddressBooks(username, password, this.hostname(username), false);
-                    console.log("connect: books:", books);
+                    //console.log("connect: books:", books);
                     for (const book of books) {
                         let bookToken = this.pathToken(book.url.pathname);
                         if (bookToken === token) {
@@ -175,11 +176,11 @@ var cardDAV = class extends ExtensionCommon.ExtensionAPI {
                     return ret;
                 },
                 async get(uuid) {
-                    console.log("get:", uuid);
+                    //console.log("get:", uuid);
                     let dir = MailServices.ab.getDirectoryFromUID(uuid);
-                    console.log("get: dir:", dir);
+                    //console.log("get: dir:", dir);
                     let book = this.book(dir);
-                    console.log("get: book:", book);
+                    //console.log("get: book:", book);
                     if (dir.dirType === MailServices.ab.CARDDAV_DIRECTORY_TYPE) {
                         book = this.book(dir);
                     } else {
@@ -190,12 +191,10 @@ var cardDAV = class extends ExtensionCommon.ExtensionAPI {
                             error: "not a cardDAV directory",
                         };
                     }
-                    console.log("get returning:", book.user);
+                    //console.log("get returning:", book.user);
                     return book;
                 },
             },
         };
     }
 };
-
-console.log("cardDAV:", cardDAV);

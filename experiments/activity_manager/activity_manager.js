@@ -1,4 +1,4 @@
-/* global console, ChromeUtils, Components, ActivityManager, Ci */
+/* global ChromeUtils, Components, ActivityManager, Ci */
 
 var { ExtensionCommon } = ChromeUtils.import("resource://gre/modules/ExtensionCommon.jsm");
 
@@ -51,6 +51,7 @@ function getIconClass(iconName) {
     return iconClass;
 }
 
+// eslint-disable-next-line no-unused-vars
 var activityManager = class extends ExtensionCommon.ExtensionAPI {
     getAPI() {
         return {
@@ -152,5 +153,3 @@ var activityManager = class extends ExtensionCommon.ExtensionAPI {
         };
     }
 };
-
-console.log(activityManager);
