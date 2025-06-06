@@ -1186,8 +1186,8 @@ export class FilterDataController {
                 throw new Error("Unknown filterctl request failure");
             }
 
-            // parse Password from response and update requests key
-            await this.requests.setKey(accountEmailAddress(await getAccount(accountId)), response.Password);
+            // update cardDAV password from response
+            this.passwords.set(accountId, response.Password);
 
             // parse Classes from response
             let classes = await datasetFactory(CLASSES, response, accountId);

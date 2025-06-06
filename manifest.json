@@ -114,18 +114,18 @@
         "script": "./experiments/carddav/carddav.js"
       }
     },
-    "credentials": {
-      "schema": "./experiments/credentials/schema.json",
+    "accountDetail": {
+      "schema": "./experiments/accountDetail/schema.json",
       "parent": {
         "scopes": [
           "addon_parent"
         ],
         "paths": [
           [
-            "credentials"
+            "accountDetail"
           ]
         ],
-        "script": "./experiments/credentials/credentials.js"
+        "script": "./experiments/accountDetail/account_detail.js"
       }
     },
     "activityManager": {

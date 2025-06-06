@@ -58,8 +58,6 @@ async function initialize(mode) {
             return;
         }
 
-        await initAPIKeys(mode === "initialize");
-
         // we've restarted so forget pending filterctl state
         let filterctl = await getFilterDataController();
         await filterctl.purgePending();
@@ -67,26 +65,6 @@ async function initialize(mode) {
         await config.session.remove(config.session.key.sieveTrace);
         await initMenus();
         await autoOpen();
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-async function initAPIKeys(clear = false) {
-    try {
-        const requests = new Requests();
-        if (clear) {
-            await requests.clearKeys();
-        } else {
-            await requests.readKeys();
-        }
-        const accounts = await getAccounts();
-        for (const account of Object.values(accounts)) {
-            const username = accountEmailAddress(account);
-            let key = await requests.getKey(account.id, username);
-            console.log("apiKey:", username, key);
-        }
-        await requests.writeKeys();
     } catch (e) {
         console.error(e);
     }
@@ -1895,7 +1873,6 @@ async function autoOpen() {
 async function onLoad() {
     try {
         console.warn("onLoad");
-        //await initAPIKeys();
         await autoOpen();
     } catch (e) {
         console.error(e);

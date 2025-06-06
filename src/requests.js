@@ -1,124 +1,11 @@
-import { getAccount } from "./accounts.js";
-import { config } from "./config.js";
 import { generateUUID, verbosity } from "./common.js";
-import { accountEmailAddress, accountDomain } from "./common.js";
-import { email } from "./email.js";
 
-/* global console, atob, btoa, fetch messenger */
+/* global console, btoa, fetch, messenger */
 const verbose = verbosity.requests;
 
 export class Requests {
     constructor() {
         this.keys = null;
-    }
-
-    async readKeys() {
-        try {
-            if (this.keys === null) {
-                this.keys = new Map();
-            }
-            let keys = await config.local.get(config.local.key.apiKeys);
-            if (typeof keys === "object") {
-                for (const [username, key] of Object.entries(keys)) {
-                    this.keys.set(username, key);
-                }
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    async writeKeys() {
-        try {
-            await config.local.set(config.local.key.apiKeys, Object.fromEntries(this.keys.entries()));
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    async clearKeys() {
-        try {
-            this.keys = new Map();
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    async setKey(username, password) {
-        try {
-            let original = undefined;
-            if (await this.hasKey(username)) {
-                original = this.keys.get(username);
-            }
-            const apiKey = btoa(`${username}:${password}`);
-            if (apiKey !== original) {
-                this.keys.set(username, apiKey);
-                await this.writeKeys();
-            }
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    async hasKey(username) {
-        try {
-            if (this.keys === null || this.keys.has(username) === false) {
-                await this.readKeys();
-            }
-            return this.keys.has(username);
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    async getKey(accountId, username) {
-        try {
-            if (!(await this.hasKey(username))) {
-                await this.readKeys();
-            }
-            if (!(await this.hasKey(username))) {
-                await this.queryKey(accountId, username);
-            }
-            let failed = false;
-            let retry = false;
-            while (!failed) {
-                const apiKey = this.keys.get(username);
-                if (typeof apiKey === "string" && apiKey.length > 0) {
-                    let decoded = atob(apiKey);
-                    let fields = decoded.split(":");
-                    if (fields.length === 2 && fields[0].length > 0 && fields[1].length > 0) {
-                        return apiKey;
-                    }
-                }
-                if (retry) {
-                    failed = true;
-                } else {
-                    retry = true;
-                    console.warn(`Deleting invalid key: ${username} ${apiKey}`);
-                    this.keys.delete(username);
-                    await this.writeKeys();
-                    await this.queryKey(accountId, username);
-                }
-            }
-            throw new Error(`Invalid api key: ${username}`);
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    async queryKey(accountId, username) {
-        try {
-            if (verbose) {
-                console.log("querying key:", accountId, username);
-            }
-	    const credentials = await messenger.credentials.get(accountId);
-            await this.setKey(credentials.username, credentials.password);
-            if (verbose) {
-                console.log("key response:", response);
-            }
-        } catch (e) {
-            console.error(e);
-        }
     }
 
     async request(accountId, path, options = {}, id = null) {
@@ -127,16 +14,14 @@ export class Requests {
                 let origin = await messenger.runtime.getURL("/");
                 console.debug("origin:", origin);
             }
-            const account = await getAccount(accountId);
-            const username = accountEmailAddress(account);
-            const domain = accountDomain(account);
             if (!id) {
                 id = generateUUID();
             }
             if (!Object.hasOwn(options, "headers")) {
                 options.headers = {};
             }
-            options.headers["X-Api-Key"] = await this.getKey(accountId, username);
+            const account = await messenger.accountDetail.get(accountId);
+            options.headers["X-Api-Key"] = btoa(`${account.email}:${account.password}`);
             options.headers["X-Request-Id"] = id;
             if (options.method === "POST") {
                 options.headers["Content-Type"] = "application/json";
@@ -145,7 +30,7 @@ export class Requests {
             options.cache = "no-cache";
             options.mode = "cors";
 
-            const url = `https://webmail.${domain}/mailfilter${path}`;
+            const url = `https://webmail.${account.domain}/mailfilter${path}`;
             if (verbose) {
                 console.debug("<-- request:", url, options);
             }
