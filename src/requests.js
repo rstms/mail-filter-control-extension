@@ -30,7 +30,7 @@ export class Requests {
             options.cache = "no-cache";
             options.mode = "cors";
 
-            const url = `https://webmail.${account.domain}/mailfilter${path}`;
+            const url = `https://webmail.${account.domain}:4443/mailfilter${path}`;
             if (verbose) {
                 console.debug("<-- request:", url, options);
             }
