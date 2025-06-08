@@ -648,8 +648,8 @@ export class Books extends FilterData {
             }
             input = await super.parse(input);
             let inputBooks = input.Books;
-            if (typeof inputBooks !== "object") {
-                this.errors.push("input Books not an object");
+            if (inputBooks === null || typeof inputBooks !== "object") {
+                this.errors.push("input Books is not an object");
                 inputBooks = {};
             }
             for (let [name, addresses] of Object.entries(inputBooks)) {
@@ -1187,6 +1187,10 @@ export class FilterDataController {
             }
 
             // update cardDAV password from response
+            if (!response.Password || typeof response.Password !== "string") {
+                console.error("Invalid Password in filterctl response:", response);
+                throw new Error("Invalid Password in filterctl response");
+            }
             this.passwords.set(accountId, response.Password);
 
             // parse Classes from response

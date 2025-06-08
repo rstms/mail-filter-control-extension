@@ -995,9 +995,14 @@ async function onMenuCreatedAddBooks(menus, created) {
         const accounts = await getAccounts();
         for (const [accountId, account] of Object.entries(accounts)) {
             let accountEmail = accountEmailAddress(account);
-            for (const bookName of await getBookNames(accountId)) {
-                let config = newBookMenuConfig(menuConfig[created.subId], accountId, bookName, created);
-                await createMenu(menus, `${created.id};${accountEmail};${accountId};${bookName}`, config);
+            let bookNames = await getBookNames(accountId);
+            if (bookNames && Array.isArray(bookNames)) {
+                for (const bookName of await getBookNames(accountId)) {
+                    let config = newBookMenuConfig(menuConfig[created.subId], accountId, bookName, created);
+                    await createMenu(menus, `${created.id};${accountEmail};${accountId};${bookName}`, config);
+                }
+            } else {
+                console.warn("no books:", accountId);
             }
         }
         return true;
