@@ -1,7 +1,6 @@
-/* global Components, ChromeUtils, MessageSend, Cc, Ci */
+/* global Components, ChromeUtils, ExtensionCommon, MessageSend, Cc, Ci */
 
-var { ExtensionCommon } = ChromeUtils.import("resource://gre/modules/ExtensionCommon.jsm");
-var { MailServices } = ChromeUtils.import("resource:///modules/MailServices.jsm");
+var { MailServices } = ChromeUtils.ImportESModule("resource:///modules/MailServices.sys.mjs");
 
 ChromeUtils.defineESModuleGetters(this, {
     MessageSend: "resource:///modules/MessageSend.sys.mjs",

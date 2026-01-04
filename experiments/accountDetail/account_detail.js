@@ -1,6 +1,4 @@
-/* global ChromeUtils, Cc, Ci */
-
-var { ExtensionCommon } = ChromeUtils.import("resource://gre/modules/ExtensionCommon.jsm");
+/* global ExtensionCommon, Cc, Ci */
 
 // eslint-disable-next-line no-unused-vars
 var accountDetail = class extends ExtensionCommon.ExtensionAPI {
@@ -12,7 +10,6 @@ var accountDetail = class extends ExtensionCommon.ExtensionAPI {
                     const account = accountManager.getAccount(accountId);
                     const defaultIdentity = account.defaultIdentity;
                     const server = account.incomingServer;
-
                     return {
                         id: accountId,
                         name: server.prettyName,

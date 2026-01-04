@@ -1,7 +1,6 @@
-/* global console, ChromeUtils, CardDAVUtils, CryptoUtils  */
+/* global console, ChromeUtils, CardDAVUtils, CryptoUtils, ExtensionCommon */
 
-var { ExtensionCommon } = ChromeUtils.import("resource://gre/modules/ExtensionCommon.jsm");
-var { MailServices } = ChromeUtils.import("resource:///modules/MailServices.jsm");
+var { MailServices } = ChromeUtils.importESModule("resource:///modules/MailServices.sys.mjs");
 
 ChromeUtils.defineESModuleGetters(this, {
     CardDAVUtils: "resource:///modules/CardDAVUtils.sys.mjs",

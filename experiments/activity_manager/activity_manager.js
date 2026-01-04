@@ -1,6 +1,4 @@
-/* global ChromeUtils, Components, ActivityManager, Ci */
-
-var { ExtensionCommon } = ChromeUtils.import("resource://gre/modules/ExtensionCommon.jsm");
+/* global ActivityManager, Ci, ChromeUtils, Components, ExtensionCommon */
 
 ChromeUtils.defineESModuleGetters(this, {
     ActivityManager: "resource:///modules/ActivityManager.sys.mjs",

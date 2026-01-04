@@ -1,6 +1,4 @@
-/* global ChromeUtils, Services */
-
-var { ExtensionCommon } = ChromeUtils.import("resource://gre/modules/ExtensionCommon.jsm");
+/* global ExtensionCommon, Services */
 
 // eslint-disable-next-line no-unused-vars
 var servicesPrompt = class extends ExtensionCommon.ExtensionAPI {
