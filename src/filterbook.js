@@ -28,7 +28,11 @@ export async function moveMessagesToFilterBook(accountId, book, messageIds) {
         if (verbose) {
             console.debug("moveMessagesToFilterBook:", accountId, book, messageIds);
         }
-        const destination = await getFolderByPath(accountId, `/FilterBooks/${book}`);
+        let destFolder = `/FilterBooks/${book}`;
+        if (book === "whitelist") {
+            destFolder = "/INBOX/Whitelist";
+        }
+        const destination = await getFolderByPath(accountId, destFolder);
         if (destination) {
             await messenger.messages.move(messageIds, destination.id);
         } else {

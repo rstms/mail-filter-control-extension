@@ -15,7 +15,7 @@ export const verbosity = {
     requests: false,
     tab_advanced: false,
     tab_books: false,
-    tab_classes: true,
+    tab_classes: false,
     tab_help: false,
     tab_options: false,
 };
