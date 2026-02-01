@@ -30,7 +30,7 @@ export async function moveMessagesToFilterBook(accountId, book, messageIds) {
         }
         let destFolder = `/FilterBooks/${book}`;
         if (book === "whitelist") {
-            destFolder = "/INBOX/Whitelist";
+            destFolder = "/INBOX/Whitelisted";
         }
         const destination = await getFolderByPath(accountId, destFolder);
         if (destination) {
@@ -84,21 +84,28 @@ export async function makeFilterBookFolder(accountId, name) {
         if (verbose) {
             console.debug("makeFilterBookFolder:", accountId, name);
         }
-        const path = `/FilterBooks/${name}`;
+	let parentFolder = "FilterBooks";
+	let filterFolder = name;
+	if (name === "whitelist") {
+	    parentFolder = "INBOX";
+	    filterFolder = "Whitelisted";
+	}
+	const parentPath = `/${parentFolder}`;
+	const path = `${parentFolder}/${filterFolder}`;
         if (await isFolder(accountId, path)) {
             if (verbose) {
                 console.log("exists:", { accountId, name, path });
             }
             return;
         }
-        if (!(await isFolder(accountId, "/FilterBooks"))) {
+        if (!(await isFolder(accountId, parentPath))) {
             const rootFolder = await getFolderByPath(accountId, "/");
-            let ret = await messenger.folders.create(rootFolder.id, "FilterBooks");
+            let ret = await messenger.folders.create(rootFolder.id, parentFolder);
             if (verbose) {
-                console.debug("folders.create:", rootFolder.id, "FilterBooks", ret);
+                console.debug("folders.create:", rootFolder.id, parentFolder, ret);
             }
         }
-        const filterBooksFolder = await getFolderByPath(accountId, "/FilterBooks");
+        const filterBooksFolder = await getFolderByPath(accountId, parentPath);
         let ret = await messenger.folders.create(filterBooksFolder.id, name);
         if (verbose) {
             console.debug("folders.create:", filterBooksFolder.id, name, ret);

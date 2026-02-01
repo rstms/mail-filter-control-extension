@@ -343,7 +343,7 @@ async function populateUsageControls() {
             tab.help.controls.helpText.innerHTML = "Updating help...";
             usagePopulated = true;
             let response = await config.local.get(config.local.key.usageResponse);
-            if (response === undefined) {
+            if (response === undefined || response.result === undefined) {
                 response = await requestUsage();
                 if (response !== undefined) {
                     await config.local.set(config.local.key.usageResponse, response);
