@@ -284,6 +284,7 @@ class ConfigSession extends ConfigBase {
             // background page state
             "initialized",
             "menuConfig",
+            "menuInitPending",
             "messageDisplayActionAccountId",
 
             // rescan status

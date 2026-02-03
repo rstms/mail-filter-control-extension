@@ -823,7 +823,7 @@ class EmailController {
                 case "rmbook":
                     return await requests.delete(accountId, `/book/${args[0]}/`, id);
                 case "usage":
-                    return await requests.get(accountId, "/usage/");
+                    return await requests.get(accountId, "/usage/", id);
                 default:
                     console.warn("unexpected command:", { accountId, command, body, timeout });
             }

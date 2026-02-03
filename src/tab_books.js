@@ -802,6 +802,7 @@ export class BooksTab {
 
             // force refresh filterctl because we changed the books
             await this.getBooks({ force: true, noPrompt: true });
+
             // tell background to initialize the menus
             await this.sendMessage("initMenus");
             await this.populateConnections(true);

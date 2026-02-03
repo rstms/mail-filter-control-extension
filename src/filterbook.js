@@ -84,35 +84,28 @@ export async function makeFilterBookFolder(accountId, name) {
         if (verbose) {
             console.debug("makeFilterBookFolder:", accountId, name);
         }
-	let parentFolder = "FilterBooks";
-	let filterFolder = name;
-	if (name === "whitelist") {
-	    parentFolder = "INBOX";
-	    filterFolder = "Whitelisted";
-	}
-	const parentPath = `/${parentFolder}`;
-	const path = `${parentFolder}/${filterFolder}`;
-        if (await isFolder(accountId, path)) {
-            if (verbose) {
-                console.log("exists:", { accountId, name, path });
-            }
+        var parentName = "FilterBooks";
+        var folderName = name;
+        if (name === "whitelist") {
+            parentName = "INBOX";
+            folderName = "Whitelisted";
+        }
+        if (await isFolder(accountId, `/${parentName}/${folderName}`)) {
             return;
         }
-        if (!(await isFolder(accountId, parentPath))) {
+        // ensure parent exists
+        if (!(await isFolder(accountId, `/${parentName}`))) {
             const rootFolder = await getFolderByPath(accountId, "/");
-            let ret = await messenger.folders.create(rootFolder.id, parentFolder);
+            const parent = await messenger.folders.create(rootFolder.id, parentName);
             if (verbose) {
-                console.debug("folders.create:", rootFolder.id, parentFolder, ret);
+                console.debug("folders.create parent folder created:", accountId, parent);
             }
         }
-        const filterBooksFolder = await getFolderByPath(accountId, parentPath);
-        let ret = await messenger.folders.create(filterBooksFolder.id, name);
+        // create folder under parent
+        const parent = await getFolderByPath(accountId, `/${parentName}`);
+        const folder = await messenger.folders.create(parent.id, folderName);
         if (verbose) {
-            console.debug("folders.create:", filterBooksFolder.id, name, ret);
-            let folder = await getFolderByPath(accountId, path);
-            if (verbose) {
-                console.log("created:", folder);
-            }
+            console.log("created:", accountId, folder);
         }
     } catch (e) {
         console.error(e);

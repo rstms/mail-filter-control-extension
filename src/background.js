@@ -647,13 +647,20 @@ async function getMenus() {
 // reset menu configuration from menu config data structure
 async function initMenus() {
     try {
-        console.log("initMenus");
+        console.log("initMenus BEGIN");
+
+        var initPending = await config.session.getBool(config.session.key.menuInitPending);
+        if (initPending) {
+            return;
+        }
+        await config.session.setBool(config.session.key.menuInitPending, true);
         let menus = {};
         await messenger.menus.removeAll();
+        await messenger.menus.refresh();
 
         if (!(await isApproved())) {
             console.log("initMenus: cleared");
-            await messenger.menus.refresh();
+            await config.session.setBool(config.session.key.menuInitPending, false);
             return;
         }
         for (let [mid, config] of Object.entries(menuConfig)) {
@@ -662,6 +669,7 @@ async function initMenus() {
             }
         }
         await messenger.menus.refresh();
+        await messenger.menus.update("rmfControlPanel", { enabled: true });
 
         // save menu config in session storage
         await config.session.set(config.session.key.menuConfig, menus);
@@ -671,6 +679,8 @@ async function initMenus() {
 
         await updateMessageDisplayAction(await selectedMessagesAccountId());
 
+        console.log("initMenus END");
+        await config.session.setBool(config.session.key.menuInitPending, false);
         return menus;
     } catch (e) {
         console.error(e);
@@ -804,6 +814,11 @@ async function onMenuClicked(info, tab) {
         if (verbose) {
             console.debug("onMenuClicked:", { info, tab });
         }
+        const initPending = await config.session.getBool(config.session.key.menuInitPending);
+        if (initPending) {
+            console.log("menu clicked while initPending");
+            return;
+        }
         if (!Object.hasOwn(info, "menuItemId")) {
             console.error("missing menuItemId:", info, tab);
             throw new Error("missing menuItemId");
@@ -822,6 +837,11 @@ async function onMenuShown(info, tab) {
     try {
         if (verbose) {
             console.debug("onMenuShown:", { info, tab });
+        }
+        const initPending = await config.session.getBool(config.session.key.menuInitPending);
+        if (initPending) {
+            console.warn("ignoring menu shown while init pending");
+            return;
         }
         if (!Object.hasOwn(info, "menuIds")) {
             console.error("missing menuIds:", info, tab);
@@ -866,6 +886,11 @@ async function onMenuEvent(menuEvent, mids, info, tab) {
             }
         }
         if (refresh) {
+            const pending = await config.session.getBool(config.session.key.menuInitPending);
+            if (pending) {
+                console.warn("ignoring menu refresh while init pending");
+                return;
+            }
             if (verbose) {
                 console.debug("refreshing menus");
             }
@@ -899,6 +924,7 @@ async function setMenuVisibility(menus, detail) {
                         } else if (config.accountId !== undefined) {
                             // filterbook visibility depends on selected account
                             properties.visible = accountId === config.accountId;
+                            console.log("setVisibility:", config.id, properties.visible);
                             if (config.properties.type === "radio") {
                                 properties.checked = config.properties.title === book;
                             }
@@ -1019,6 +1045,7 @@ function newBookMenuConfig(srcConfig, accountId, bookName, created) {
         config.book = bookName;
         config.properties.title = config.properties.title.replace(/__book__/, bookName);
         config.properties.contexts = created.properties.contexts;
+        config.properties.visible = false;
         return config;
     } catch (e) {
         console.error(e);
@@ -1921,8 +1948,8 @@ async function onFolderCreated(createdFolder) {
             let response = await email.sendRequest(accountId, "mkbook " + bookName);
             console.log("created FilterBook:", response);
             await getBookNames(accountId, true);
-            await initMenus();
         }
+        await initMenus();
     } catch (e) {
         console.error(e);
     }
