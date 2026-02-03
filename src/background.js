@@ -53,7 +53,7 @@ async function initialize(mode) {
         await closeEditor();
 
         if (!(await isApproved())) {
-            await initMenus();
+            await initMenus("approve extension on options page");
             await messenger.runtime.openOptionsPage();
             return;
         }
@@ -63,7 +63,7 @@ async function initialize(mode) {
         await filterctl.purgePending();
         // and forget sieveTrace state
         await config.session.remove(config.session.key.sieveTrace);
-        await initMenus();
+        await initMenus("extension startup");
         await autoOpen();
     } catch (e) {
         console.error(e);
@@ -450,7 +450,7 @@ async function handleMessage(message, sender) {
                 response = await getAddSenderTarget(message.accountId);
                 break;
             case "initMenus":
-                response = await initMenus();
+                response = await initMenus("editor filter book change");
                 break;
             case "cacheControl":
                 response = await handleCacheControl(message);
@@ -484,6 +484,14 @@ async function handleMessage(message, sender) {
 ///////////////////////////////////////////////////////////////////////////////
 
 let menuConfig = {
+    rmfMenuUpdatePending: {
+        properties: {
+            title: "Menu Update Pending...",
+            contexts: ["message_list", "message_display_action"],
+        },
+        onCreated: "onMenuCreatedUpdatePending",
+    },
+
     rmfControlPanel: {
         properties: {
             title: "Mail Filter Control Panel",
@@ -625,6 +633,9 @@ function getMenuHandler(handlerName) {
 
             case "onMenuShownSieveTrace":
                 return onMenuShownSieveTrace;
+
+            case "onMenuCreatedUpdatePending":
+                return onMenuCreatedUpdatePending;
         }
         throw new Error(`unknown menu handler: ${handlerName}`);
     } catch (e) {
@@ -636,7 +647,7 @@ async function getMenus() {
     try {
         let menus = await config.session.get(config.session.key.menuConfig);
         if (typeof menus !== "object" || Array.from(Object.keys(menus)).length === 0) {
-            menus = await initMenus();
+            menus = await initMenus("restoring stored config");
         }
         return menus;
     } catch (e) {
@@ -645,21 +656,21 @@ async function getMenus() {
 }
 
 // reset menu configuration from menu config data structure
-async function initMenus() {
+async function initMenus(message) {
     try {
         var initPending = await config.session.getBool(config.session.key.menuInitPending);
         if (initPending) {
-            console.log("initMenus PENDING");
+            console.log("BYPASS initMenus: init pending");
             return;
         }
-        console.log("initMenus BEGIN");
+        console.log("BEGIN initMenus:", message);
         await config.session.setBool(config.session.key.menuInitPending, true);
         let menus = {};
         await messenger.menus.removeAll();
-        await messenger.menus.refresh();
-
+        await config.session.set(config.session.key.menuPendingTitle, "Menu update pending: " + message + "...");
         if (!(await isApproved())) {
-            console.log("initMenus: cleared");
+            await messenger.menus.refresh();
+            console.warn("END initMenus: extension not approved, menus cleared");
             await config.session.setBool(config.session.key.menuInitPending, false);
             return;
         }
@@ -669,9 +680,7 @@ async function initMenus() {
                 await createMenu(menus, mid, config);
             }
         }
-        await messenger.menus.refresh();
         await messenger.menus.update("rmfControlPanel", { enabled: true });
-
         // save menu config in session storage
         await config.session.set(config.session.key.menuConfig, menus);
         if (verbose) {
@@ -679,9 +688,10 @@ async function initMenus() {
         }
 
         await updateMessageDisplayAction(await selectedMessagesAccountId());
-
         await config.session.setBool(config.session.key.menuInitPending, false);
-        console.log("initMenus END");
+        await messenger.menus.remove("rmfMenuUpdatePending");
+        await messenger.menus.refresh();
+        console.log("END initMenus");
 
         return menus;
     } catch (e) {
@@ -840,11 +850,13 @@ async function onMenuShown(info, tab) {
         if (verbose) {
             console.debug("onMenuShown:", { info, tab });
         }
+        /*
         const initPending = await config.session.getBool(config.session.key.menuInitPending);
-        if (initPending) {
-            console.warn("ignoring menu shown while init pending");
-            return;
+	if (initPending) {
+	    console.warn("ignoring menu shown while init pending");
+	    return;
         }
+	*/
         if (!Object.hasOwn(info, "menuIds")) {
             console.error("missing menuIds:", info, tab);
             throw new Error("missing menuIds");
@@ -1009,6 +1021,17 @@ async function menuEventDetail(info, tab) {
             console.debug("menuEventDetail returning:", ret);
         }
         return ret;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function onMenuCreatedUpdatePending() {
+    try {
+        console.warn("onMenuCreatedUpdatePending");
+        const pendingTitle = await config.session.get(config.session.key.menuPendingTitle);
+        await messenger.menus.update("rmfMenuUpdatePending", { title: pendingTitle });
+        await messenger.menus.refresh();
     } catch (e) {
         console.error(e);
     }
@@ -1951,7 +1974,7 @@ async function onFolderCreated(createdFolder) {
             console.log("created FilterBook:", response);
             await getBookNames(accountId, true);
         }
-        await initMenus();
+        await initMenus("filter book created");
     } catch (e) {
         console.error(e);
     }
@@ -1960,21 +1983,21 @@ async function onFolderCreated(createdFolder) {
 async function onFolderDeleted(folder) {
     try {
         console.log("onFolderDeleted:", folder);
-        let accountId = folder.accountId;
-        let enabled = await isAccount(accountId);
-        let isFilterBook = folder.path.match(/^[/]FilterBooks[/]([^/][^/]*)$/);
+        const accountId = folder.accountId;
+        const enabled = await isAccount(accountId);
+        const isFilterBook = folder.path.match(/^[/]FilterBooks[/]([^/][^/]*)$/);
         if (enabled && isFilterBook) {
-            let bookName = isFilterBook[1].toLowerCase();
+            const bookName = isFilterBook[1].toLowerCase();
             const bookNames = await getBookNames(accountId, true);
             if (bookNames.includes(bookName)) {
-                let message = `Do you want to delete FilterBook '${bookName}' including all sender addresses?`;
-                let confirmed = await messenger.servicesPrompt.confirm("Confirm FilterBook Delete", message);
+                const message = `Do you want to delete FilterBook '${bookName}' including all sender addresses?`;
+                const confirmed = await messenger.servicesPrompt.confirm("Confirm FilterBook Delete", message);
                 if (confirmed) {
                     await closeEditor();
                     let response = await email.sendRequest(accountId, "rmbook " + bookName);
                     console.log("deleted FilterBook:", response);
                     await getBookNames(accountId, true);
-                    await initMenus();
+                    await initMenus("filter book deleted");
                 }
             }
         }

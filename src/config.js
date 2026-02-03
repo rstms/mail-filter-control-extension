@@ -34,6 +34,8 @@ const DEFAULTS = {
         "greenbluffllc.com",
         "citybestmanagement.com",
     ],
+    menuInitPending: true,
+    menuPendingTitle: "Menu Config Pending...",
 };
 
 class ConfigBase {
@@ -285,6 +287,7 @@ class ConfigSession extends ConfigBase {
             "initialized",
             "menuConfig",
             "menuInitPending",
+            "menuPendingTitle",
             "messageDisplayActionAccountId",
 
             // rescan status

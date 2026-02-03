@@ -778,6 +778,7 @@ async function showToast(title, message) {
         document.getElementById("class-toast-close-text").textContent = savedAt.toLocaleTimeString();
         document.getElementById("class-toast-body").textContent = message;
         this.toast.show();
+        return this.toast;
     } catch (e) {
         console.error(e);
     }
