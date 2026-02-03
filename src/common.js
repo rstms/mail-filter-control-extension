@@ -4,7 +4,7 @@ export const TICKS_PER_SECOND = 1000;
 
 export const verbosity = {
     accounts: false,
-    background: true,
+    background: false,
     config: false,
     display: false,
     editor: false,

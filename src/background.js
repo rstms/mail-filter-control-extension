@@ -647,12 +647,12 @@ async function getMenus() {
 // reset menu configuration from menu config data structure
 async function initMenus() {
     try {
-        console.log("initMenus BEGIN");
-
         var initPending = await config.session.getBool(config.session.key.menuInitPending);
         if (initPending) {
+            console.log("initMenus PENDING");
             return;
         }
+        console.log("initMenus BEGIN");
         await config.session.setBool(config.session.key.menuInitPending, true);
         let menus = {};
         await messenger.menus.removeAll();
@@ -663,6 +663,7 @@ async function initMenus() {
             await config.session.setBool(config.session.key.menuInitPending, false);
             return;
         }
+
         for (let [mid, config] of Object.entries(menuConfig)) {
             if (config.noInit !== true) {
                 await createMenu(menus, mid, config);
@@ -679,8 +680,9 @@ async function initMenus() {
 
         await updateMessageDisplayAction(await selectedMessagesAccountId());
 
-        console.log("initMenus END");
         await config.session.setBool(config.session.key.menuInitPending, false);
+        console.log("initMenus END");
+
         return menus;
     } catch (e) {
         console.error(e);
@@ -889,12 +891,12 @@ async function onMenuEvent(menuEvent, mids, info, tab) {
             const pending = await config.session.getBool(config.session.key.menuInitPending);
             if (pending) {
                 console.warn("ignoring menu refresh while init pending");
-                return;
+            } else {
+                if (verbose) {
+                    console.debug("refreshing menus");
+                }
+                await messenger.menus.refresh();
             }
-            if (verbose) {
-                console.debug("refreshing menus");
-            }
-            await messenger.menus.refresh();
         }
     } catch (e) {
         console.error(e);
