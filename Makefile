@@ -77,6 +77,7 @@ release: all
 	gh release create v$(version) --notes "v$(version)"
 	gh release upload v$(version) updates.json
 	( cd dist && gh release upload v$(version) $(release_file) )
+	find dist -type f -name "*-$(version).xpi" | xargs -IXPI scp XPI beaker:Downloads
 
 clean:
 	rm -f .eslint
