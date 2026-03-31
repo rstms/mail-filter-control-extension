@@ -1494,9 +1494,9 @@ async function onMenuRemoveSenderClicked(target, detail) {
         // will differ from the selected messages
         // TODO: ensure the context-clicked messages are acted upon, rather than the selected messages
 
-        if (verbose) {
-            console.debug("onMenuRemoveSenderClicked:", target.id, { target, detail });
-        }
+        //if (verbose) {
+        console.debug("onMenuRemoveSenderClicked:", target.id, { target, detail });
+        //}
         const fields = target.id.split(";");
         const mid = fields[0];
         const accountId = fields[2];
