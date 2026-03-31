@@ -930,9 +930,9 @@ async function setMenuVisibility(menus, detail) {
     let accountId = detail.accountId;
     let context = detail.context;
     try {
-        //if (verbose) {
-        console.debug("setMenuVisibility:", detail);
-        //}
+        if (verbose) {
+            console.debug("setMenuVisibility:", detail);
+        }
 
         let book = accountId === undefined ? undefined : await getAddSenderTarget(accountId);
         for (const config of Object.values(menus)) {
@@ -956,9 +956,9 @@ async function setMenuVisibility(menus, detail) {
                         }
                     }
                 }
-                //if (verbose) {
-                console.debug("updating menu:", config.id, properties);
-                //}
+                if (verbose) {
+		    console.debug("updating menu:", config.id, properties);
+                }
                 await messenger.menus.update(config.id, properties);
             }
         }
@@ -1345,14 +1345,14 @@ async function requestRescan(account, path, messageIds) {
             Folder: path,
             MessageIds: messageIds,
         };
-        //if (verbose) {
-        console.log("Rescan request:", request);
-        //}
+        if (verbose) {
+	    console.log("Rescan request:", request);
+        }
         let requests = new Requests();
         let response = await requests.post(account.id, "/rescan/", request);
-        //if (verbose) {
-        console.log("Rescan response:", response);
-        //}
+        if (verbose) {
+	    console.log("Rescan response:", response);
+        }
         await findContentTab("rescan", true);
         await updateActiveRescans(response);
     } catch (e) {
@@ -1494,9 +1494,9 @@ async function onMenuRemoveSenderClicked(target, detail) {
         // will differ from the selected messages
         // TODO: ensure the context-clicked messages are acted upon, rather than the selected messages
 
-        //if (verbose) {
-        console.debug("onMenuRemoveSenderClicked:", target.id, { target, detail });
-        //}
+        if (verbose) {
+	    console.debug("onMenuRemoveSenderClicked:", target.id, { target, detail });
+        }
         let messageList = undefined;
         if (target.id === "rmfRemoveSenderMessageList") {
             // this is a context-click in the message list
@@ -1516,9 +1516,9 @@ async function onMenuRemoveSenderClicked(target, detail) {
 // TODO: scan message folder for other messages with matching From address and move to FilterBook folder
 async function addSenderToFilterBook(accountId, book, messageList) {
     try {
-        //if (verbose) {
-        console.debug("addSenderToFilterBook:", { accountId, book, messageList });
-        //}
+        if (verbose) {
+	    console.debug("addSenderToFilterBook:", { accountId, book, messageList });
+        }
 
         // sendersAdded prevents multiple calls to processAddSender for the same From address
         let sendersAdded = new Map();
@@ -1575,9 +1575,9 @@ async function addSenderToFilterBook(accountId, book, messageList) {
 // perform 'removeSender' function on messageList
 async function removeSenderFromFilterBooks(accountId, messageList) {
     try {
-        //if (verbose) {
-        console.debug("removeSenderFromFilterBooks:", { accountId, messageList });
-        //}
+        if (verbose) {
+	    console.debug("removeSenderFromFilterBooks:", { accountId, messageList });
+        }
 
         // sendersAdded prevents multiple calls to processAddSender for the same From address
         let sendersAdded = new Map();
