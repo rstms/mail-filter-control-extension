@@ -957,7 +957,7 @@ async function setMenuVisibility(menus, detail) {
                     }
                 }
                 if (verbose) {
-		    console.debug("updating menu:", config.id, properties);
+                    console.debug("updating menu:", config.id, properties);
                 }
                 await messenger.menus.update(config.id, properties);
             }
@@ -1346,12 +1346,12 @@ async function requestRescan(account, path, messageIds) {
             MessageIds: messageIds,
         };
         if (verbose) {
-	    console.log("Rescan request:", request);
+            console.log("Rescan request:", request);
         }
         let requests = new Requests();
         let response = await requests.post(account.id, "/rescan/", request);
         if (verbose) {
-	    console.log("Rescan response:", response);
+            console.log("Rescan response:", response);
         }
         await findContentTab("rescan", true);
         await updateActiveRescans(response);
@@ -1495,7 +1495,7 @@ async function onMenuRemoveSenderClicked(target, detail) {
         // TODO: ensure the context-clicked messages are acted upon, rather than the selected messages
 
         if (verbose) {
-	    console.debug("onMenuRemoveSenderClicked:", target.id, { target, detail });
+            console.debug("onMenuRemoveSenderClicked:", target.id, { target, detail });
         }
         let messageList = undefined;
         if (target.id === "rmfRemoveSenderMessageList") {
@@ -1517,7 +1517,7 @@ async function onMenuRemoveSenderClicked(target, detail) {
 async function addSenderToFilterBook(accountId, book, messageList) {
     try {
         if (verbose) {
-	    console.debug("addSenderToFilterBook:", { accountId, book, messageList });
+            console.debug("addSenderToFilterBook:", { accountId, book, messageList });
         }
 
         // sendersAdded prevents multiple calls to processAddSender for the same From address
@@ -1576,7 +1576,7 @@ async function addSenderToFilterBook(accountId, book, messageList) {
 async function removeSenderFromFilterBooks(accountId, messageList) {
     try {
         if (verbose) {
-	    console.debug("removeSenderFromFilterBooks:", { accountId, messageList });
+            console.debug("removeSenderFromFilterBooks:", { accountId, messageList });
         }
 
         // sendersAdded prevents multiple calls to processAddSender for the same From address
