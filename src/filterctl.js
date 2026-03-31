@@ -1658,6 +1658,21 @@ export class FilterDataController {
         }
     }
 
+    async removeSenderFromFilterBooks(accountId, senderAddress) {
+        try {
+            await getAccount(accountId);
+            let command = "rmaddr " + senderAddress;
+            let response = await this.email.sendRequest(accountId, command, {});
+            await this.purgeCachedBooks(accountId);
+            if (verbose) {
+                console.debug("get: filterctl response:", response);
+            }
+            return response;
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
     async getCardDAVBooks(accountId, force = false) {
         try {
             const account = await getAccount(accountId);

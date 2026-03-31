@@ -818,6 +818,8 @@ class EmailController {
                     return this.compareCommand(id, accountId, command, args, body, timeout);
                 case "mkaddr":
                     return await requests.post(accountId, "/address/", { Bookname: args[0], Address: args[1] }, id);
+                case "rmaddr":
+                    return await requests.delete(accountId, "/address/", { Bookname: "*", Address: args[1] }, id);
                 case "mkbook":
                     return await requests.post(accountId, "/book/", { BookName: args[0] }, id);
                 case "rmbook":
