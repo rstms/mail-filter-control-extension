@@ -519,17 +519,6 @@ let menuConfig = {
         hideAfterCreate: true,
     },
 
-    rmfRemoveSenderMessageList: {
-        properties: {
-            title: "Remove Sender from Filter Books",
-            contexts: ["message_list"],
-            visible: false,
-        },
-        subId: "rmfBook",
-        hideAfterCreate: true,
-        onClicked: "onMenuRemoveSenderClicked",
-    },
-
     rmfAddSenderMessageDisplayAction: {
         properties: {
             title: "Add Sender to Filter Book",
@@ -564,6 +553,14 @@ let menuConfig = {
             contexts: ["message_list"],
         },
         onClicked: "onMenuRescanMessagesClicked",
+    },
+
+    rmfRemoveSenderMessageList: {
+        properties: {
+            title: "Remove Sender from Filter Books",
+            contexts: ["message_list"],
+        },
+        onClicked: "onMenuRemoveSenderClicked",
     },
 
     rmfRescanFolder: {
