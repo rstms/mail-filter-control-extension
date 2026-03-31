@@ -571,6 +571,16 @@ let menuConfig = {
         onClicked: "onMenuRescanFolderClicked",
     },
 
+    rmfAddToWhitelist: {
+        properties: {
+            title: "Add all recipients to whitelist",
+            contexts: ["folder_pane"],
+            visible: false,
+        },
+        onShown: "onMenuAddToWhitelistShown",
+        onClicked: "onMenuAddToWhitelistClicked",
+    },
+
     rmfSelectAddSenderSeparator: {
         properties: {
             type: "separator",
@@ -644,6 +654,12 @@ function getMenuHandler(handlerName) {
 
             case "onMenuShownSieveTrace":
                 return onMenuShownSieveTrace;
+
+            case "onMenuAddToWhitelistShown":
+                return onMenuAddToWhitelistShown;
+
+            case "onMenuAddToWhitelistClicked":
+                return onMenuAddToWhitelistClicked;
 
             case "onMenuCreatedUpdatePending":
                 return onMenuCreatedUpdatePending;
@@ -1170,6 +1186,30 @@ async function onMenuShownSieveTrace(target, detail) {
         }
         let enabled = await getSieveTrace(detail.accountId);
         await messenger.menus.update(target.id, { checked: enabled });
+        return true;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function onMenuAddToWhitelistShown(target, detail) {
+    try {
+        if (verbose) {
+            console.debug("onMenuAddToWhitelistShown:", target.id, { target, detail });
+        }
+        //await messenger.menus.update(target.id, { checked: enabled });
+        return true;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function onMenuAddToWhitelistClicked(target, detail) {
+    try {
+        if (verbose) {
+            console.debug("onMenuAddToWhitelistClicked:", target.id, { target, detail });
+        }
+        //await messenger.menus.update(target.id, { checked: enabled });
         return true;
     } catch (e) {
         console.error(e);
