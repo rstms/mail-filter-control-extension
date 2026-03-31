@@ -43,6 +43,23 @@ export async function moveMessagesToFilterBook(accountId, book, messageIds) {
     }
 }
 
+export async function moveMessagesToInbox(accountId, messageIds) {
+    try {
+        if (verbose) {
+            console.debug("moveMessagesToInbox:", accountId, messageIds);
+        }
+        let destFolder = `/INBOX`;
+        const destination = await getFolderByPath(accountId, destFolder);
+        if (destination) {
+            await messenger.messages.move(messageIds, destination.id);
+        } else {
+            console.warn("move to INBOX failed: ", { messageIds });
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
 export async function isFolder(accountId, path) {
     try {
         let folders = await messenger.folders.query({ accountId, path });

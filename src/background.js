@@ -8,7 +8,7 @@ import { email } from "./email.js";
 import { config, updateActiveRescans } from "./config.js";
 import { verbosity, isValidBookName } from "./common.js";
 import { Requests } from "./requests.js";
-import { moveMessagesToFilterBook } from "./filterbook.js";
+import { moveMessagesToFilterBook, moveMessagesToInbox } from "./filterbook.js";
 
 /* globals console, messenger, window */
 
@@ -519,6 +519,17 @@ let menuConfig = {
         hideAfterCreate: true,
     },
 
+    rmfRemoveSenderMessageList: {
+        properties: {
+            title: "Remove Sender from Filter Books",
+            contexts: ["message_list"],
+            visible: false,
+        },
+        subId: "rmfBook",
+        hideAfterCreate: true,
+        onClicked: "onMenuRemoveSenderClicked",
+    },
+
     rmfAddSenderMessageDisplayAction: {
         properties: {
             title: "Add Sender to Filter Book",
@@ -618,6 +629,9 @@ function getMenuHandler(handlerName) {
 
             case "onMenuAddSenderClicked":
                 return onMenuAddSenderClicked;
+
+            case "onMenuRemoveSenderClicked":
+                return onMenuRemoveSenderClicked;
 
             case "onMenuRescanMessagesClicked":
                 return onMenuRescanMessagesClicked;
@@ -1477,6 +1491,36 @@ async function onMenuAddSenderClicked(target, detail) {
     }
 }
 
+async function onMenuRemoveSenderClicked(target, detail) {
+    try {
+        // NOTE: event target,detail contain messages context-clicked, which
+        // will differ from the selected messages
+        // TODO: ensure the context-clicked messages are acted upon, rather than the selected messages
+
+        if (verbose) {
+            console.debug("onMenuRemoveSenderClicked:", target.id, { target, detail });
+        }
+        const fields = target.id.split(";");
+        const mid = fields[0];
+        const accountId = fields[2];
+        let messageList = undefined;
+        if (mid === "rmfRemoveSenderMessageList") {
+            // this is a context-click in the message list
+            // get target messages from the event info
+            messageList = detail.info.selectedMessages;
+        } else if (mid === "rmfRemoveSenderMessageDisplayAction") {
+            // this is a message display action menu click
+            // get target messages from the mailTab selected messages
+            messageList = await messenger.mailTabs.getSelectedMessages(detail.tab.id);
+        } else {
+            throw new Error(`Unexpected menuId: ${target.id}`);
+        }
+        await removeSenderFromFilterBooks(accountId, messageList);
+    } catch (e) {
+        console.error(e);
+    }
+}
+
 // perform 'addSender' function on messageList
 // TODO: move messages to FilterBook folder
 // TODO: scan message folder for other messages with matching From address and move to FilterBook folder
@@ -1538,6 +1582,69 @@ async function addSenderToFilterBook(accountId, book, messageList) {
     }
 }
 
+// perform 'removeSender' function on messageList
+async function removeSenderFromFilterBooks(accountId, messageList) {
+    try {
+        //if (verbose) {
+        console.debug("removeSenderFromFilterBooks:", { accountId, messageList });
+        //}
+
+        // sendersAdded prevents multiple calls to processAddSender for the same From address
+        let sendersAdded = new Map();
+
+        const filterctl = await getFilterDataController();
+
+        let folderIds = new Map();
+        let messageIds = new Map();
+
+        // scan selected messages using boilerplate for paged messages data
+        let page = messageList;
+        let messages = page.messages;
+        while (messages.length) {
+            for (const message of messages) {
+                if (accountId !== message.folder.accountId) {
+                    console.error("message folder account mismatch:", { accountId, message });
+                    throw new Error("message folder account mismatch");
+                }
+                var sender = String(message.author)
+                    .replace(/^[^<]*</g, "")
+                    .replace(/>.*$/g, "");
+
+                if (!sendersAdded.has(sender)) {
+                    // remove the sender address for a selected message
+                    processRemoveSender(filterctl, accountId, sender);
+                    // remember processed sender addresses
+                    sendersAdded.set(sender, true);
+                }
+                messageIds.set(message.id, true);
+                folderIds.set(message.folder.id, true);
+            }
+            if (page.id) {
+                page = await messenger.messages.continueList(page.id);
+                messages = page.messages;
+            } else {
+                break;
+            }
+        }
+
+        // scan folders for all matching sender addresses
+        if (await config.local.getBool(config.local.key.addSenderFolderScan)) {
+            for (const senderAddress of sendersAdded.keys()) {
+                for (const folderId of folderIds.keys()) {
+                    let scanIds = await scanFolderMessageSender(accountId, folderId, senderAddress);
+                    for (const messageId of scanIds) {
+                        messageIds.set(messageId, true);
+                    }
+                }
+            }
+        }
+        // move matching addresses to INBOX
+        await moveMessagesToInbox(accountId, Array.from(messageIds.keys()));
+    } catch (e) {
+        console.error(e);
+    }
+}
+
 async function scanFolderMessageSender(accountId, folderId, senderAddress) {
     try {
         console.log("scanFolderMessageSender:", { accountId, folderId, senderAddress });
@@ -1578,6 +1685,29 @@ async function processAddSender(filterctl, accountId, sender, book) {
             await display.fail(`AddSender '${sender}' to '${book}' failed: ${e}`);
             if (verbose) {
                 console.error("AddSender failed:", accountId, sender, book, e);
+            }
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function processRemoveSender(filterctl, accountId, sender) {
+    try {
+        if (verbose) {
+            console.log("RemoveSender request:", accountId, sender);
+        }
+        let display = await displayProcess(`Removing '${sender}' from all FilterBooks...`, 0, 10, { ticker: 1 });
+        try {
+            let response = await filterctl.removeSenderFromFilterBooks(accountId, sender);
+            await display.complete(`Remove '${sender}' from all FilterBooks`);
+            if (verbose) {
+                console.log("RemoveSender completed:", accountId, sender, response);
+            }
+        } catch (e) {
+            await display.fail(`RemoveSender '${sender}' from all FilterBooks failed: ${e}`);
+            if (verbose) {
+                console.error("RemoveSender failed:", accountId, sender, e);
             }
         }
     } catch (e) {
