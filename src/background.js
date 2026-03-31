@@ -1497,22 +1497,15 @@ async function onMenuRemoveSenderClicked(target, detail) {
         //if (verbose) {
         console.debug("onMenuRemoveSenderClicked:", target.id, { target, detail });
         //}
-        const fields = target.id.split(";");
-        const mid = fields[0];
-        const accountId = fields[2];
         let messageList = undefined;
-        if (mid === "rmfRemoveSenderMessageList") {
+        if (target.id === "rmfRemoveSenderMessageList") {
             // this is a context-click in the message list
             // get target messages from the event info
             messageList = detail.info.selectedMessages;
-        } else if (mid === "rmfRemoveSenderMessageDisplayAction") {
-            // this is a message display action menu click
-            // get target messages from the mailTab selected messages
-            messageList = await messenger.mailTabs.getSelectedMessages(detail.tab.id);
         } else {
             throw new Error(`Unexpected menuId: ${target.id}`);
         }
-        await removeSenderFromFilterBooks(accountId, messageList);
+        await removeSenderFromFilterBooks(detail.accountId, messageList);
     } catch (e) {
         console.error(e);
     }
