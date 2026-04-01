@@ -705,7 +705,7 @@ async function initMenus(message) {
             console.log("BYPASS initMenus: init pending");
             return;
         }
-        console.log("BEGIN initMenus:", message);
+        console.warn("BEGIN initMenus:", message);
         await config.session.setBool(config.session.key.menuInitPending, true);
         let menus = {};
         await messenger.menus.removeAll();
@@ -729,11 +729,12 @@ async function initMenus(message) {
             console.log("saved menu config:", menus);
         }
 
-        await updateMessageDisplayAction(await selectedMessagesAccountId());
+        const selectedAccountId = await selectedMessagesAccountId();
+        await updateMessageDisplayAction(selectedAccountId);
         await config.session.setBool(config.session.key.menuInitPending, false);
         await messenger.menus.remove("rmfMenuUpdatePending");
         await messenger.menus.refresh();
-        console.log("END initMenus");
+        console.warn("END initMenus");
 
         return menus;
     } catch (e) {
@@ -796,18 +797,30 @@ async function updateMessageDisplayAction(accountId = undefined) {
             // set accountId to undefined to disable button when not approved
             accountId = undefined;
         }
+
+        // check if we've seen the message window open, to avoid messageDisplayAction.SetTitle hanging
+        const messageWindowOpened = await config.local.getBool(config.local.key.messageDisplayOpened);
+        console.log("messageWindowOpened: ", messageWindowOpened);
+
+        const openWindows = await messenger.windows.getAll({ populate: true });
+        console.log("openWindows: ", openWindows);
+
         // save the accountId for use by message_display_action_menu onClicked
         await config.session.set(config.session.key.messageDisplayActionAccountId, accountId);
         if (approved && accountId !== undefined) {
             let targetBook = await getAddSenderTarget(accountId);
             if (typeof targetBook === "string" && targetBook !== "") {
-                await messenger.messageDisplayAction.setTitle({ title: `Add sender to '${targetBook}'` });
-                await messenger.messageDisplayAction.enable();
+                if (messageWindowOpened) {
+                    await messenger.messageDisplayAction.setTitle({ title: `Add sender to '${targetBook}'` });
+                    await messenger.messageDisplayAction.enable();
+                }
                 return;
             }
         }
-        await messenger.messageDisplayAction.setTitle({ title: "Add Sender Disabled" });
-        await messenger.messageDisplayAction.disable();
+        if (messageWindowOpened) {
+            await messenger.messageDisplayAction.setTitle({ title: "Add Sender Disabled" });
+            await messenger.messageDisplayAction.disable();
+        }
     } catch (e) {
         console.error(e);
     }
@@ -992,26 +1005,26 @@ async function getMenuItemVisibility(config, detail, accountId, context, folder)
         }
 
         // if menu config excludes folders, ensure we're not in an excluded folder
-        if (Object.HasOwn(config, "excludeFolders")) {
+        if (Object.hasOwn(config, "excludeFolders")) {
             if (folder === "") {
                 return false;
             }
-            if (config.excludeFolders.contains(folder)) {
+            if (config.excludeFolders.indexOf(folder) !== -1) {
                 return false;
             }
         }
 
         // if menu config includes folders, ensure we're in an included folder
-        if (Object.HasOwn(config, "includeFolders")) {
+        if (Object.hasOwn(config, "includeFolders")) {
             if (folder === "") {
                 return false;
             }
-            if (!config.includeFolders.contains(folder)) {
+            if (config.includeFolders.indexOf(folder) === -1) {
                 return false;
             }
         }
 
-        if (Object.HasOwn(config, "accountId")) {
+        if (Object.hasOwn(config, "accountId")) {
             if (accountId !== config.accountId) {
                 return false;
             }
@@ -1038,7 +1051,6 @@ async function setMenuVisibility(menus, detail) {
             console.debug("setMenuVisibility detail:", detail);
             console.debug("setMenuVisibility accountId:", accountId);
             console.debug("setMenuVisibility context:", context);
-            return;
         }
 
         let folder = "";
@@ -1272,6 +1284,10 @@ async function onMenuSieveTraceShown(target, detail) {
         if (verbose) {
             console.debug("onMenuSieveTraceShown:", target.id, { target, detail });
         }
+        if (detail.accountId === undefined || detail.accountId === "") {
+            await messenger.menus.update(target.id, { visible: false });
+            return true;
+        }
         let enabled = await getSieveTrace(detail.accountId);
         await messenger.menus.update(target.id, { checked: enabled });
         return true;
@@ -1280,6 +1296,7 @@ async function onMenuSieveTraceShown(target, detail) {
     }
 }
 
+// HOWDY
 async function onMenuAddRecipientsToWhitelistClicked(target, detail) {
     try {
         if (verbose) {
@@ -1288,21 +1305,21 @@ async function onMenuAddRecipientsToWhitelistClicked(target, detail) {
         let folderId = `${detail.accountId}://Sent`;
         let recipients = await scanFolderMessageRecipients(detail.accountId, folderId);
         const filterctl = await getFilterDataController();
-        const count = recipients.length();
-        let message = `Add ${count} 'sent-to' addresses to whitelist?`;
+        const total = recipients.length;
+        let message = `Add ${total} 'sent-to' addresses to whitelist?`;
         let confirmed = await messenger.servicesPrompt.confirm("Confirm Add Addresses", message);
         if (confirmed) {
-            let display = await displayProcess(`Adding recipient addresses to whitelist...`, 0, count, { ticker: 1 });
-            let rnum = 0;
+            let display = await displayProcess(`Adding recipient addresses to whitelist...`, 0, total);
+            let count = 0;
             for (const recipient of recipients) {
                 if (verbose) {
                     console.log("adding recipient: ", recipient);
                 }
                 await filterctl.addAddressToFilterBook(detail.accountId, recipient, "whitelist");
-                await display.Update(`added ${recipient}`, rnum);
-                rnum++;
+                count++;
+                await display.update(`added ${recipient}`, count);
             }
-            await display.complete(`Added ${count} addresses to whitelist`);
+            await display.complete(`Added ${total} addresses to whitelist`);
             await display.Complete();
         }
         return true;
@@ -1600,8 +1617,7 @@ async function onMenuAddSenderClicked(target, detail) {
             // get target messages from the event info
             messageList = detail.info.selectedMessages;
         } else if (mid === "rmfAddSenderMessageDisplayAction") {
-            // this is a message display action menu click
-            // get target messages from the mailTab selected messages
+            // this is a message display action menu click // get target messages from the mailTab selected messages
             messageList = await messenger.mailTabs.getSelectedMessages(detail.tab.id);
         } else {
             throw new Error(`Unexpected menuId: ${target.id}`);
@@ -1805,7 +1821,7 @@ async function scanFolderMessageRecipients(accountId, folderId) {
             }
             pageId = page.id;
         }
-        return Array.from(Object.keys(recipients));
+        return Array.from(recipients.keys());
     } catch (e) {
         console.error(e);
     }
@@ -2294,6 +2310,17 @@ async function onMessageDisplayActionClicked(tab, info) {
     }
 }
 
+async function onMessagesDisplayed(tab, displayedMessages) {
+    try {
+        console.log("messages displayed: ", displayedMessages);
+        if (displayedMessages.messages.length > 0) {
+            await config.local.setBool(config.local.key.messageDisplayOpened, true);
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 //
 //  event wiring
@@ -2313,6 +2340,8 @@ messenger.menus.onShown.addListener(onMenuShown);
 
 messenger.mailTabs.onDisplayedFolderChanged.addListener(onDisplayedFolderChanged);
 messenger.mailTabs.onSelectedMessagesChanged.addListener(onSelectedMessagesChanged);
+
+messenger.messageDisplay.onMessagesDisplayed.addListener(onMessagesDisplayed);
 
 messenger.messageDisplayAction.onClicked.addListener(onMessageDisplayActionClicked);
 
