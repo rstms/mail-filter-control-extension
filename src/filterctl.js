@@ -1643,10 +1643,10 @@ export class FilterDataController {
         }
     }
 
-    async addSenderToFilterBook(accountId, senderAddress, bookName) {
+    async addAddressToFilterBook(accountId, address, bookName) {
         try {
             await getAccount(accountId);
-            let command = "mkaddr " + bookName + " " + senderAddress;
+            let command = "mkaddr " + bookName + " " + address;
             let response = await this.email.sendRequest(accountId, command, {});
             await this.purgeCachedBooks(accountId);
             if (verbose) {
@@ -1658,10 +1658,10 @@ export class FilterDataController {
         }
     }
 
-    async removeSenderFromFilterBooks(accountId, senderAddress) {
+    async removeAddressFromFilterBooks(accountId, address) {
         try {
             await getAccount(accountId);
-            let command = "rmaddr " + senderAddress;
+            let command = "rmaddr " + address;
             let response = await this.email.sendRequest(accountId, command, {});
             await this.purgeCachedBooks(accountId);
             if (verbose) {

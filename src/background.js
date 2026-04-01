@@ -458,12 +458,6 @@ async function handleMessage(message, sender) {
             case "getCardDAVBooks":
                 response = await handleGetCardDAVBooks(message);
                 break;
-            /*
-            case "addSenderToFilterBook":
-                response = await handleAddSenderToFilterBook(message);
-                break;
-	    */
-
             default:
                 console.error("background: received unexpected message:", message, sender);
                 throw new Error("background received unexpected message:" + message.id);
@@ -577,7 +571,6 @@ let menuConfig = {
             contexts: ["folder_pane"],
             visible: false,
         },
-        onShown: "onMenuAddToWhitelistShown",
         onClicked: "onMenuAddToWhitelistClicked",
     },
 
@@ -603,9 +596,9 @@ let menuConfig = {
             contexts: ["folder_pane"],
             type: "checkbox",
         },
-        onCreated: "onMenuCreatedSieveTrace",
-        onClicked: "onMenuClickedSieveTrace",
-        onShown: "onMenuShownSieveTrace",
+        onCreated: "onMenuSieveTraceCreated",
+        onClicked: "onMenuSieveTraceClicked",
+        onShown: "onMenuSieveTraceShown",
     },
 
     rmfTargetBook: {
@@ -646,17 +639,14 @@ function getMenuHandler(handlerName) {
             case "onMenuRescanFolderClicked":
                 return onMenuRescanFolderClicked;
 
-            case "onMenuCreatedSieveTrace":
-                return onMenuCreatedSieveTrace;
+            case "onMenuSieveTraceCreated":
+                return onMenuSieveTraceCreated;
 
-            case "onMenuClickedSieveTrace":
-                return onMenuClickedSieveTrace;
+            case "onMenuSieveTraceClicked":
+                return onMenuSieveTraceClicked;
 
-            case "onMenuShownSieveTrace":
-                return onMenuShownSieveTrace;
-
-            case "onMenuAddToWhitelistShown":
-                return onMenuAddToWhitelistShown;
+            case "onMenuSieveTraceShown":
+                return onMenuSieveTraceShown;
 
             case "onMenuAddToWhitelistClicked":
                 return onMenuAddToWhitelistClicked;
@@ -962,6 +952,14 @@ async function setMenuVisibility(menus, detail) {
                         if (config.id === "rmfRescanMessages" || config.id === "rmfRescanFolder") {
                             // rescan visibility depends on selected folder
                             properties.visible = await getRescanVisibility(config.id, detail);
+                        } else if (config.id === "rmfAddToWhitelist") {
+                            if (detail.info.selectedFolders.length === 1 && detail.info.selectedFolders[0].name === "Sent") {
+                                properties.visible = true;
+                                properties.enabled = true;
+                            } else {
+                                properties.visible = false;
+                                properties.enabled = false;
+                            }
                         } else if (config.accountId !== undefined) {
                             // filterbook visibility depends on selected account
                             properties.visible = accountId === config.accountId;
@@ -1164,10 +1162,10 @@ async function setSieveTrace(accountId, enabled) {
     }
 }
 
-async function onMenuCreatedSieveTrace(menus, created) {
+async function onMenuSieveTraceCreated(menus, created) {
     try {
         if (verbose) {
-            console.debug("onMenuCreatedSieveTrace:", created);
+            console.debug("onMenuSieveTraceCreated:", created);
         }
         const accounts = await getAccounts();
         for (const accountId of Object.keys(accounts)) {
@@ -1179,25 +1177,13 @@ async function onMenuCreatedSieveTrace(menus, created) {
     }
 }
 
-async function onMenuShownSieveTrace(target, detail) {
+async function onMenuSieveTraceShown(target, detail) {
     try {
         if (verbose) {
-            console.debug("onMenuShownSieveTrace:", target.id, { target, detail });
+            console.debug("onMenuSieveTraceShown:", target.id, { target, detail });
         }
         let enabled = await getSieveTrace(detail.accountId);
         await messenger.menus.update(target.id, { checked: enabled });
-        return true;
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-async function onMenuAddToWhitelistShown(target, detail) {
-    try {
-        if (verbose) {
-            console.debug("onMenuAddToWhitelistShown:", target.id, { target, detail });
-        }
-        //await messenger.menus.update(target.id, { checked: enabled });
         return true;
     } catch (e) {
         console.error(e);
@@ -1209,17 +1195,36 @@ async function onMenuAddToWhitelistClicked(target, detail) {
         if (verbose) {
             console.debug("onMenuAddToWhitelistClicked:", target.id, { target, detail });
         }
-        //await messenger.menus.update(target.id, { checked: enabled });
+        let folderId = `${detail.accountId}://Sent`;
+        let recipients = await scanFolderMessageRecipients(detail.accountId, folderId);
+        const filterctl = await getFilterDataController();
+        const count = recipients.length();
+        let message = `Add ${count} 'sent-to' addresses to whitelist?`;
+        let confirmed = await messenger.servicesPrompt.confirm("Confirm Add Addresses", message);
+        if (confirmed) {
+            let display = await displayProcess(`Adding recipient addresses to whitelist...`, 0, count, { ticker: 1 });
+            let rnum = 0;
+            for (const recipient of recipients.keys()) {
+                if (verbose) {
+                    console.log("adding recipient: ", recipient);
+                }
+                await filterctl.addAddressToFilterBook(detail.accountId, recipient, "whitelist");
+                await display.Update(`added ${recipient}`, rnum);
+                rnum++;
+            }
+            await display.complete(`Added ${count} addresses to whitelist`);
+            await display.Complete();
+        }
         return true;
     } catch (e) {
         console.error(e);
     }
 }
 
-async function onMenuClickedSieveTrace(target, detail) {
+async function onMenuSieveTraceClicked(target, detail) {
     try {
         if (verbose) {
-            console.log("onMenuClickedSieveTrace:", target.id, {
+            console.log("onMenuSieveTraceClicked:", target.id, {
                 target,
                 detail,
             });
@@ -1480,17 +1485,6 @@ async function setAddSenderTarget(accountId, bookName) {
     }
 }
 
-/*
-async function handleAddSenderToFilterBook(message) {
-    try {
-        let tab = await selectedMessagesTab();
-        await addSenderToFilterBook(message.accountId, tab, message.bookName);
-    } catch (e) {
-        console.error(e);
-    }
-}
-*/
-
 ///////////////////////////////////////////////////////////////////////////////
 //
 //  Address Book Filter actions
@@ -1699,6 +1693,33 @@ async function scanFolderMessageSender(accountId, folderId, senderAddress) {
     }
 }
 
+async function scanFolderMessageRecipients(accountId, folderId) {
+    try {
+        console.log("scanFolderMessageRecipients:", { accountId, folderId });
+        let recipients = new Map();
+        let pageId = await messenger.messages.query({
+            accountId,
+            folderId,
+            returnMessageListId: true,
+        });
+        while (pageId) {
+            let page = await messenger.messages.continueList(pageId);
+            for (const message of page.messages) {
+                for (let recipient of message.recipients) {
+                    recipient = String(message.author)
+                        .replace(/^[^<]*</g, "")
+                        .replace(/>.*$/g, "");
+                    recipients.set(recipient, true);
+                }
+            }
+            pageId = page.id;
+        }
+        return recipients;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
 async function processAddSender(filterctl, accountId, sender, book) {
     try {
         if (verbose) {
@@ -1706,7 +1727,7 @@ async function processAddSender(filterctl, accountId, sender, book) {
         }
         let display = await displayProcess(`Adding '${sender}' to '${book}'...`, 0, 10, { ticker: 1 });
         try {
-            let response = await filterctl.addSenderToFilterBook(accountId, sender, book);
+            let response = await filterctl.addAddressToFilterBook(accountId, sender, book);
             await display.complete(`Added '${sender}' to '${book}'`);
             if (verbose) {
                 console.log("AddSender completed:", accountId, sender, book, response);
@@ -1729,7 +1750,7 @@ async function processRemoveSender(filterctl, accountId, sender) {
         }
         let display = await displayProcess(`Removing '${sender}' from all FilterBooks...`, 0, 10, { ticker: 1 });
         try {
-            let response = await filterctl.removeSenderFromFilterBooks(accountId, sender);
+            let response = await filterctl.removeAddressFromFilterBooks(accountId, sender);
             await display.complete(`Remove '${sender}' from all FilterBooks`);
             if (verbose) {
                 console.log("RemoveSender completed:", accountId, sender, response);
