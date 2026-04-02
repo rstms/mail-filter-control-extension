@@ -271,7 +271,6 @@ class ConfigLocal extends ConfigBase {
             "preferredTheme",
             "apiKeys",
             "mailFilterDomains",
-            "messageDisplayOpened",
 
             // auto-open on reload flags
             "autoOpenOptions",

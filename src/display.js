@@ -224,7 +224,6 @@ class Activity {
 
 export async function displayEvent(message, options = {}) {
     try {
-        console.error("displayEvent called");
         let activity = new Activity();
         await activity.addEvent(message, options);
         return activity;
@@ -235,7 +234,6 @@ export async function displayEvent(message, options = {}) {
 
 export async function displayProcess(message, count, total, options = {}) {
     try {
-        console.error("displayProcess called");
         let activity = new Activity();
         options.count = count;
         options.total = total;
