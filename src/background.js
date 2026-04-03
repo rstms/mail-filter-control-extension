@@ -9,6 +9,7 @@ import { config, updateActiveRescans } from "./config.js";
 import { verbosity, isValidBookName } from "./common.js";
 import { Requests } from "./requests.js";
 import { moveMessagesToFilterBook, moveMessagesToInbox } from "./filterbook.js";
+import { menuConfig } from "./menu.js";
 
 /* globals console, messenger, window */
 
@@ -20,169 +21,6 @@ const SENDER = "sender";
 const RECIPIENT = "recipient";
 const ADD = "add";
 const REMOVE = "remove";
-
-///////////////////////////////////////////////////////////////////////////////
-//
-//  menu configuration
-//
-///////////////////////////////////////////////////////////////////////////////
-
-let menuConfig = {
-    rmfControlPanel: {
-        properties: {
-            title: "Mail Filter Control Panel",
-            contexts: ["tools_menu", "action", "folder_pane"],
-        },
-        onClicked: "onMenuControlPanelClicked",
-    },
-
-    rmfOpenRescans: {
-        properties: {
-            title: "Mail Filter Active Rescans",
-            contexts: ["tools_menu", "action"],
-        },
-        onClicked: "onMenuOpenRescansClicked",
-    },
-
-    rmfAddSenderMessageList: {
-        properties: {
-            title: "Add Sender to Filter Book",
-            contexts: ["message_list"],
-        },
-        onCreated: "onMenuAddBooksCreated",
-        subId: "rmfBook",
-        hideAfterCreate: true,
-        excludeFolders: ["Sent"],
-    },
-
-    rmfAddSenderMessageDisplayAction: {
-        properties: {
-            title: "Add Sender to Filter Book",
-            contexts: ["message_display_action"],
-        },
-        onCreated: "onMenuAddBooksCreated",
-        subId: "rmfBook",
-        hideAfterCreate: true,
-        excludeFolders: ["Sent"],
-    },
-
-    rmfRescanMessagesSeparator: {
-        properties: {
-            type: "separator",
-            contexts: ["message_list"],
-        },
-        excludeFolders: ["Sent"],
-    },
-
-    rmfRescanFolder: {
-        properties: {
-            title: "Rescan All Messages in Folder",
-            contexts: ["folder_pane"],
-        },
-        onClicked: "onMenuRescanFolderClicked",
-        excludeFolders: ["Sent", "Drafts"],
-    },
-
-    rmfRescanMessages: {
-        properties: {
-            title: "Rescan Selected Messages",
-            contexts: ["message_list"],
-        },
-        onClicked: "onMenuRescanMessagesClicked",
-        excludeFolders: ["Sent", "Drafts"],
-        requireSelection: true,
-    },
-
-    rmfRemoveSender: {
-        properties: {
-            title: "Remove sender from all Filter Books",
-            contexts: ["message_list"],
-        },
-        onClicked: "onMenuRemoveSenderClicked",
-        excludeFolders: ["Sent"],
-        requireSelection: true,
-    },
-
-    rmfAddRecipient: {
-        properties: {
-            title: "Add recipient to whitelist",
-            contexts: ["message_list"],
-        },
-        onClicked: "onMenuAddRecipientClicked",
-        includeFolders: ["Sent"],
-        requireSelection: true,
-    },
-
-    rmfRemoveRecipient: {
-        properties: {
-            title: "Remove recipient from whitelist",
-            contexts: ["message_list"],
-        },
-        onClicked: "onMenuRemoveRecipientClicked",
-        includeFolders: ["Sent"],
-        requireSelection: true,
-    },
-
-    rmfSelectAddSenderSeparator: {
-        properties: {
-            type: "separator",
-            contexts: ["message_display_action"],
-        },
-        excludeFolders: ["Sent"],
-    },
-
-    rmfSelectAddSenderTarget: {
-        properties: {
-            title: "Select 'Add Sender' Target",
-            contexts: ["message_display_action"],
-        },
-        onCreated: "onMenuAddBooksCreated",
-        subId: "rmfTargetBook",
-        excludeFolders: ["Sent"],
-    },
-
-    rmfSieveSeparator: {
-        properties: {
-            type: "separator",
-            contexts: ["folder_pane"],
-        },
-    },
-
-    rmfSieveTrace: {
-        properties: {
-            title: "Sieve Trace Enabled",
-            contexts: ["folder_pane"],
-            type: "checkbox",
-        },
-        onCreated: "onMenuSieveTraceCreated",
-        onClicked: "onMenuSieveTraceClicked",
-        onShown: "onMenuSieveTraceShown",
-    },
-
-    rmfBook: {
-        account: "__account-id__",
-        book: "__book__",
-        properties: {
-            title: "Add sender to '__book__'",
-        },
-        onClicked: "onMenuAddSenderClicked",
-        noInit: true,
-        excludeFolders: ["Sent"],
-        requireSelection: true,
-    },
-
-    rmfTargetBook: {
-        account: "__account__",
-        properties: {
-            title: "__book__",
-            type: "radio",
-            parentId: "rmfSelectAddSenderTarget",
-        },
-        noInit: true,
-        onClicked: "onMenuSelectBookClicked",
-        excludeFolders: ["Sent"],
-    },
-};
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -242,6 +80,24 @@ async function initialize(mode) {
 
         await initMenus("extension startup");
         await autoOpen();
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function autoOpen() {
+    try {
+        let cacheCleared = await config.local.getBool(config.local.key.cacheCleared);
+        await config.local.remove(config.local.key.cacheCleared);
+
+        let autoOptions = await config.local.getBool(config.local.key.autoOpenOptions);
+        await config.local.remove(config.local.key.autoOpenOptions);
+
+        if (autoOptions === true) {
+            await messenger.runtime.openOptionsPage();
+        } else if (cacheCleared === true) {
+            await focusEditorWindow();
+        }
     } catch (e) {
         console.error(e);
     }
@@ -341,7 +197,7 @@ async function findContentTab(name, force = false) {
 async function focusEditorWindow() {
     try {
         if (verbose) {
-            console.debug("focusEditorWindow");
+            console.log("focusEditorWindow");
         }
 
         // divert to options page if not approved
@@ -359,7 +215,7 @@ async function focusEditorWindow() {
 async function focusRescanWindow() {
     try {
         if (verbose) {
-            console.debug("focusRescanWindow");
+            console.log("focusRescanWindow");
         }
 
         // divert to options page if not approved
@@ -413,7 +269,7 @@ async function openContentTab(name) {
         if (verbose) {
             console.log("openContentTab:", { name, url, title });
         }
-        var tab = await findContentTab(name);
+        let tab = await findContentTab(name);
         if (tab) {
             if (verbose) {
                 console.debug("found existing content tab:", name, tab);
@@ -430,7 +286,7 @@ async function openContentTab(name) {
         }
         let response = await messenger.runtime.sendMessage(message);
         if (verbose) {
-            console.log("background sent ENQ, got:", response);
+            console.debug("background sent ENQ, got:", response);
         }
         if (typeof response !== "object" || response.src !== name) {
             throw new Error(`failed opening content tab ${name}`);
@@ -453,7 +309,7 @@ async function sendMessage(message, force = false) {
         let tab = await findContentTab(name, force);
         if (!tab && !force) {
             if (verbose) {
-                console.log("tab not open, not sending");
+                console.debug("tab not open, not sending");
             }
             return;
         }
@@ -473,7 +329,7 @@ async function sendMessage(message, force = false) {
 async function onCommand(command, tab) {
     try {
         if (verbose) {
-            console.debug("onCommand:", command, tab);
+            console.log("onCommand:", command, tab);
         }
 
         if (!(await isApproved())) {
@@ -499,10 +355,10 @@ async function onCommand(command, tab) {
                 }
                 if (typeof bookName === "string" && bookName !== "") {
                     let messageList = await messenger.mailTabs.getSelectedMessages(tab.id);
-                    console.log("Command AddSenderToFilterBook:", { command, accountId, bookName, messageList });
+                    console.debug("Command AddSenderToFilterBook:", { command, accountId, bookName, messageList });
                     await addSenderToFilterBook(accountId, bookName, messageList);
                 } else {
-                    console.log("Command AddSenderToAddressBook: book not found:", { command, suffix, bookNames });
+                    console.debug("Command AddSenderToAddressBook: book not found:", { command, suffix, bookNames });
                 }
             }
             return;
@@ -521,8 +377,7 @@ async function onCommand(command, tab) {
 function onMessage(message, sender) {
     try {
         if (verbose) {
-            console.debug("background.onMessage:", message, sender);
-            console.log("background.OnMessage received:", message.id, message.src);
+            console.log("background.onMessage:", message, sender);
         }
 
         if (!(typeof message.src === "string" && message.src.length > 0)) {
@@ -561,7 +416,7 @@ async function handleMessage(message, sender) {
             case "ENQ":
                 response = { id: "ACK", src: "background", dst: message.src };
                 if (verbose) {
-                    console.log("background received ENQ, returning:", response);
+                    console.debug("background received ENQ, returning:", response);
                 }
                 break;
 
@@ -714,12 +569,14 @@ async function getMenus() {
 async function initMenus(message) {
     try {
         // check initPending lock
-        var initPending = await config.session.getBool(config.session.key.menuInitPending);
-        if (initPending) {
-            console.log("BYPASS initMenus: init pending");
+        if (await config.session.getBool(config.session.key.menuInitPending)) {
+            console.warn("menuInitPending set; ignoring reentrant initMenus call");
             return;
         }
-        console.warn("BEGIN initMenus:", message);
+
+        if (verbose) {
+            console.warn("BEGIN initMenus:", message);
+        }
 
         // set initPending lock
         await config.session.setBool(config.session.key.menuInitPending, true);
@@ -744,7 +601,7 @@ async function initMenus(message) {
         // save menu config in session storage
         await config.session.set(config.session.key.menuConfig, menus);
         if (verbose) {
-            console.log("saved menu config:", menus);
+            console.debug("saved menu config:", menus);
         }
 
         const info = await querySelectedMessages();
@@ -755,7 +612,9 @@ async function initMenus(message) {
 
         //await messenger.menus.remove("rmfMenuUpdatePending");
         await messenger.menus.refresh();
-        console.warn("END initMenus");
+        if (verbose) {
+            console.warn("END initMenus");
+        }
 
         return menus;
     } catch (e) {
@@ -877,7 +736,7 @@ async function updateMessageDisplayAction(accountId = undefined, folder = undefi
 async function createMenu(menus, mid, config) {
     try {
         if (verbose) {
-            console.debug("createMenu:", mid, config);
+            console.log("createMenu:", mid, config);
         }
 
         if (Object.hasOwn(menus, mid)) {
@@ -902,7 +761,7 @@ async function createMenu(menus, mid, config) {
         }
         menus[mid] = created;
         if (verbose) {
-            console.log("createMenu:", mid, {
+            console.debug("createMenu:", mid, {
                 created,
                 config,
                 properties,
@@ -927,7 +786,7 @@ async function createMenu(menus, mid, config) {
 async function onMenuClicked(info, tab) {
     try {
         if (verbose) {
-            console.debug("onMenuClicked:", { info, tab });
+            console.log("onMenuClicked:", { info, tab });
         }
         if (!Object.hasOwn(info, "menuItemId")) {
             console.error("missing menuItemId:", info, tab);
@@ -946,7 +805,7 @@ async function onMenuClicked(info, tab) {
 async function onMenuShown(info, tab) {
     try {
         if (verbose) {
-            console.debug("onMenuShown:", { info, tab });
+            console.log("onMenuShown:", { info, tab });
         }
         const initPending = await config.session.getBool(config.session.key.menuInitPending);
         if (initPending) {
@@ -994,8 +853,7 @@ async function onMenuEvent(menuEvent, mids, info, tab) {
             }
         }
         if (refresh) {
-            const pending = await config.session.getBool(config.session.key.menuInitPending);
-            if (pending) {
+            if (await config.session.getBool(config.session.key.menuInitPending)) {
                 console.warn("ignoring menu refresh while init pending");
             } else {
                 if (verbose) {
@@ -1079,7 +937,7 @@ async function getMenuItemVisibility(config, detail) {
 async function setMenuVisibility(menus, detail) {
     try {
         if (verbose) {
-            console.debug("setMenuVisibility:", config.id, config, detail);
+            console.log("setMenuVisibility:", config.id, config, detail);
         }
         let refresh = false;
         let book = detail.accountId === undefined ? undefined : await getAddSenderTarget(detail.accountId);
@@ -1131,7 +989,7 @@ async function setMenuVisibility(menus, detail) {
 async function menuEventDetail(info, tab) {
     try {
         if (verbose) {
-            console.debug("menuEventDetail:", info, tab);
+            console.log("menuEventDetail:", info, tab);
         }
         let ret = {
             info,
@@ -1183,7 +1041,6 @@ async function menuEventDetail(info, tab) {
                 // get accountId from the value stored by onDisplayedFolderChanged handler
                 ret.hasAccount = true;
                 ret.accountId = await config.session.get(config.session.key.messageDisplayActionAccountId);
-                ret.folderName = undefined;
                 if (!ret.accountId) {
                     const info = await querySelectedMessages();
                     if (await isAccount(info.accountId)) {
@@ -1226,7 +1083,7 @@ async function menuEventDetail(info, tab) {
 async function onMenuAddBooksCreated(menus, created) {
     try {
         if (verbose) {
-            console.debug("onMenuAddBooksCreated:", created);
+            console.log("onMenuAddBooksCreated:", created);
         }
         const accounts = await getAccounts();
         for (const [accountId, account] of Object.entries(accounts)) {
@@ -1312,7 +1169,7 @@ async function setSieveTrace(accountId, enabled) {
             action = enabled ? "Enabled" : "Disabled";
             await display.complete(`${action} Sieve Trace for ${email}`);
             if (verbose) {
-                console.log("setSieveTrace completed:", accountId, enabled);
+                console.debug("setSieveTrace completed:", accountId, enabled);
             }
         } catch (e) {
             await display.fail(`${action} Sieve Trace for ${email} failed: ${e}`);
@@ -1326,7 +1183,7 @@ async function setSieveTrace(accountId, enabled) {
 async function onMenuSieveTraceCreated(menus, created) {
     try {
         if (verbose) {
-            console.debug("onMenuSieveTraceCreated:", created);
+            console.log("onMenuSieveTraceCreated:", created);
         }
         const accounts = await getAccounts();
         for (const accountId of Object.keys(accounts)) {
@@ -1347,7 +1204,7 @@ async function onMenuSieveTraceCreated(menus, created) {
 async function onMenuSieveTraceShown(target, detail) {
     try {
         if (verbose) {
-            console.debug("onMenuSieveTraceShown:", target.id, { target, detail });
+            console.log("onMenuSieveTraceShown:", target.id, { target, detail });
         }
         if (detail.accountId === undefined || detail.accountId === "") {
             await messenger.menus.update(target.id, { visible: false });
@@ -1398,7 +1255,7 @@ async function validateOnClicked(config, detail, accountId, folderName, messages
 async function onMenuAddSenderClicked(config, detail) {
     try {
         if (verbose) {
-            console.debug("onMenuAddSenderClicked:", config.id, { config, detail });
+            console.log("onMenuAddSenderClicked:", config.id, { config, detail });
         }
         if (!config.dynamic) {
             throw new Error(`config missing dynamic flag`);
@@ -1417,7 +1274,7 @@ async function onMenuAddSenderClicked(config, detail) {
 async function addSenderToFilterBook(accountId, filterBook) {
     try {
         if (verbose) {
-            console.debug("onMenuRemoveSenderClicked:", accountId, filterBook);
+            console.log("onMenuRemoveSenderClicked:", accountId, filterBook);
         }
         const selected = await querySelectedMessages({ messages: true });
         if (!selected) {
@@ -1437,7 +1294,7 @@ async function addSenderToFilterBook(accountId, filterBook) {
 async function onMenuRemoveSenderClicked(config, detail) {
     try {
         if (verbose) {
-            console.debug("onMenuRemoveSenderClicked:", config.id, { config, detail });
+            console.log("onMenuRemoveSenderClicked:", config.id, { config, detail });
         }
         const selected = await querySelectedMessages({ messages: true });
         if (await validateOnClicked(config, detail, selected.accountId, selected.folderName, selected.messages)) {
@@ -1451,7 +1308,7 @@ async function onMenuRemoveSenderClicked(config, detail) {
 async function onMenuAddRecipientClicked(config, detail) {
     try {
         if (verbose) {
-            console.debug("onMenuAddRecipientClicked:", config.id, { config, detail });
+            console.log("onMenuAddRecipientClicked:", config.id, { config, detail });
         }
         const selected = await querySelectedMessages({ messages: true });
         if (await validateOnClicked(config, detail, selected.accountId, selected.folderName, selected.messages)) {
@@ -1465,7 +1322,7 @@ async function onMenuAddRecipientClicked(config, detail) {
 async function onMenuRemoveRecipientClicked(config, detail) {
     try {
         if (verbose) {
-            console.debug("onMenuRemoveRecipientClicked:", config.id, { config, detail });
+            console.log("onMenuRemoveRecipientClicked:", config.id, { config, detail });
         }
         const selected = await querySelectedMessages({ messages: true });
         if (await validateOnClicked(config, detail, selected.accountId, selected.folderName, selected.messages)) {
@@ -1542,7 +1399,7 @@ async function filterBookAction(action, addressType, accountId, filterBook, mess
                 const status = `${title} - ${op.actioning} ${addressType} ${op.description} ${op.direction} ${filterBook}`;
                 await display.update(status, ++count);
                 if (verbose) {
-                    console.log(status);
+                    console.debug(status);
                 }
                 switch (action) {
                     case ADD:
@@ -1594,7 +1451,7 @@ async function onMenuSieveTraceClicked(target, detail) {
 async function getRescanVisibility(menuId, detail) {
     try {
         if (verbose) {
-            console.debug("getRescanVisibility:", { menuId, detail });
+            console.log("getRescanVisibility:", { menuId, detail });
         }
         if (detail.hasAccount) {
             var folderPath;
@@ -1637,7 +1494,7 @@ async function getRescanVisibility(menuId, detail) {
 async function onActionButtonClicked(tab, info) {
     try {
         if (verbose) {
-            console.debug("onActionButtonClicked:", { tab, info });
+            console.log("onActionButtonClicked:", { tab, info });
         }
         await focusEditorWindow();
     } catch (e) {
@@ -1668,7 +1525,7 @@ async function onMenuSelectBookClicked(config, detail) {
 async function onMenuControlPanelClicked(target, detail) {
     try {
         if (verbose) {
-            console.debug("onMenuControlPanelClicked:", target.id, { target, detail });
+            console.log("onMenuControlPanelClicked:", target.id, { target, detail });
         }
         await focusEditorWindow();
     } catch (e) {
@@ -1679,7 +1536,7 @@ async function onMenuControlPanelClicked(target, detail) {
 async function onMenuOpenRescansClicked(target, detail) {
     try {
         if (verbose) {
-            console.debug("onMenuOpenRescansClicked:", target.id, { target, detail });
+            console.log("onMenuOpenRescansClicked:", target.id, { target, detail });
         }
         await focusRescanWindow();
     } catch (e) {
@@ -1760,7 +1617,7 @@ async function requestRescan(account, path, messageIds) {
         let requests = new Requests();
         let response = await requests.post(account.id, "/rescan/", request);
         if (verbose) {
-            console.log("Rescan response:", response);
+            console.debug("Rescan response:", response);
         }
         await findContentTab("rescan", true);
         await updateActiveRescans(response);
@@ -1781,10 +1638,10 @@ async function getAddSenderTarget(accountId) {
     try {
         if (await isAccount(accountId)) {
             const bookNames = await getBookNames(accountId);
-            let targets = await config.local.get(config.local.key.addSenderTarget);
+            const targets = await config.local.get(config.local.key.addSenderTarget);
             if (targets !== undefined) {
                 if (Object.hasOwn(targets, accountId)) {
-                    let target = targets[accountId];
+                    const target = targets[accountId];
                     // ensure the target is present in bookNames
                     if (bookNames.includes(target)) {
                         return target;
@@ -1792,8 +1649,7 @@ async function getAddSenderTarget(accountId) {
                 }
             }
             for (const bookName of bookNames) {
-                // select the first book
-                //await setAddSenderTarget(accountId, bookName);
+                // no setting found, so return the first book
                 return bookName;
             }
         }
@@ -1805,7 +1661,7 @@ async function getAddSenderTarget(accountId) {
 async function getBookNames(accountId, force = false) {
     try {
         const filterctl = await getFilterDataController();
-        var books = [];
+        let books = [];
         const bookData = await filterctl.getBooks(accountId, force);
         for (const bookName of Object.keys(bookData.books.Books)) {
             books.push(bookName);
@@ -1831,7 +1687,7 @@ async function setAddSenderTarget(accountId, bookName, folderName = undefined, o
                 console.debug("changed addSenderTarget:", accountId, bookName, targets);
             }
 
-            // inform editor the addSender Target has Changed
+            // if not called from handleMessage (editor) inform editor the addSender Target has Changed
             if (!options.fromHandleMessage) {
                 await sendMessage({
                     id: "addSenderTargetChanged",
@@ -2108,7 +1964,7 @@ async function handleGetClasses(message) {
 async function handleSetClasses(message) {
     try {
         if (verbose) {
-            console.debug("handleSetClasses:", message);
+            console.log("handleSetClasses:", message);
         }
         const filterctl = await getFilterDataController();
         const result = await filterctl.setClasses(message.accountId, message.classes);
@@ -2251,7 +2107,7 @@ async function onDisplayedFolderChanged(tab, displayedFolder) {
             let account = await getAccount(accountId);
             email = accountEmailAddress(account);
         }
-        console.log("displayedFolderChanged", { accountId, email, folder });
+        console.debug("displayedFolderChanged", { accountId, email, folder });
         await updateMessageDisplayAction(accountId, folder);
     } catch (e) {
         console.error(e);
@@ -2267,24 +2123,6 @@ async function onSelectedMessagesChanged(tab, selectedMessages) {
             let accountId = message.folder.accountId;
             await updateMessageDisplayAction(accountId, message.folder.name);
             return;
-        }
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-async function autoOpen() {
-    try {
-        let cacheCleared = await config.local.getBool(config.local.key.cacheCleared);
-        await config.local.remove(config.local.key.cacheCleared);
-
-        let autoOptions = await config.local.getBool(config.local.key.autoOpenOptions);
-        await config.local.remove(config.local.key.autoOpenOptions);
-
-        if (autoOptions === true) {
-            await messenger.runtime.openOptionsPage();
-        } else if (cacheCleared === true) {
-            await focusEditorWindow();
         }
     } catch (e) {
         console.error(e);
@@ -2335,7 +2173,7 @@ async function onFolderCreated(createdFolder) {
             }
             await closeEditor();
             let response = await email.sendRequest(accountId, "mkbook " + bookName);
-            console.log("created FilterBook:", response);
+            console.debug("created FilterBook:", response);
             await getBookNames(accountId, true);
         }
         await initMenus("filter book created");
@@ -2359,7 +2197,7 @@ async function onFolderDeleted(folder) {
                 if (confirmed) {
                     await closeEditor();
                     let response = await email.sendRequest(accountId, "rmbook " + bookName);
-                    console.log("deleted FilterBook:", response);
+                    console.debug("deleted FilterBook:", response);
                     await getBookNames(accountId, true);
                     await initMenus("filter book deleted");
                 }
