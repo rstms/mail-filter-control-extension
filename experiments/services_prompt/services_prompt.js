@@ -8,6 +8,9 @@ var servicesPrompt = class extends ExtensionCommon.ExtensionAPI {
                 async confirm(title, message) {
                     return Services.prompt.confirm(null, title, message);
                 },
+                async alert(title, message) {
+                    return Services.prompt.alert(null, title, message);
+                },
             },
         };
     }

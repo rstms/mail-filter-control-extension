@@ -1,7 +1,7 @@
 console.warn("BEGIN background.js");
 
 import { isAccount, getAccounts, getAccount, getSelectedAccount } from "./accounts.js";
-import { accountEmailAddress } from "./common.js";
+import { accountEmailAddress, differ } from "./common.js";
 import { displayProcess } from "./display.js";
 import { FilterDataController } from "./filterctl.js";
 import { email } from "./email.js";
@@ -15,6 +15,12 @@ import { moveMessagesToFilterBook, moveMessagesToInbox } from "./filterbook.js";
 // control flags
 const verbose = verbosity.background;
 
+// constants for filter book operations
+const SENDER = "sender";
+const RECIPIENT = "recipient";
+const ADD = "add";
+const REMOVE = "remove";
+
 ///////////////////////////////////////////////////////////////////////////////
 //
 //  menu configuration
@@ -22,7 +28,6 @@ const verbose = verbosity.background;
 ///////////////////////////////////////////////////////////////////////////////
 
 let menuConfig = {
-
     rmfControlPanel: {
         properties: {
             title: "Mail Filter Control Panel",
@@ -85,33 +90,37 @@ let menuConfig = {
         },
         onClicked: "onMenuRescanMessagesClicked",
         excludeFolders: ["Sent", "Drafts"],
+        requireSelection: true,
     },
 
-    rmfRemoveSenderMessageList: {
+    rmfRemoveSender: {
         properties: {
-            title: "Remove sender from Filter Books",
+            title: "Remove sender from all Filter Books",
             contexts: ["message_list"],
         },
-        onClicked: "onMenuModifyFilterBooksClicked",
+        onClicked: "onMenuRemoveSenderClicked",
         excludeFolders: ["Sent"],
+        requireSelection: true,
     },
 
-    rmfAddRecipientsMessageList: {
+    rmfAddRecipient: {
         properties: {
             title: "Add recipient to whitelist",
             contexts: ["message_list"],
         },
-        onClicked: "onMenuModifyFilterBooksClicked",
+        onClicked: "onMenuAddRecipientClicked",
         includeFolders: ["Sent"],
+        requireSelection: true,
     },
 
-    rmfRemoveRecipientsMessageList: {
+    rmfRemoveRecipient: {
         properties: {
             title: "Remove recipient from whitelist",
             contexts: ["message_list"],
         },
-        onClicked: "onMenuModifyFilterBooksClicked",
+        onClicked: "onMenuRemoveRecipientClicked",
         includeFolders: ["Sent"],
+        requireSelection: true,
     },
 
     rmfSelectAddSenderSeparator: {
@@ -156,9 +165,10 @@ let menuConfig = {
         properties: {
             title: "Add sender to '__book__'",
         },
-        onClicked: "onMenuModifyFilterBooksClicked",
+        onClicked: "onMenuAddSenderClicked",
         noInit: true,
         excludeFolders: ["Sent"],
+        requireSelection: true,
     },
 
     rmfTargetBook: {
@@ -489,7 +499,7 @@ async function onCommand(command, tab) {
                 }
                 if (typeof bookName === "string" && bookName !== "") {
                     let messageList = await messenger.mailTabs.getSelectedMessages(tab.id);
-                    console.log("Command AddSenderToAddressBook:", { command, accountId, bookName, messageList });
+                    console.log("Command AddSenderToFilterBook:", { command, accountId, bookName, messageList });
                     await addSenderToFilterBook(accountId, bookName, messageList);
                 } else {
                     console.log("Command AddSenderToAddressBook: book not found:", { command, suffix, bookNames });
@@ -670,8 +680,17 @@ function getMenuHandler(handlerName) {
             case "onMenuSieveTraceShown":
                 return onMenuSieveTraceShown;
 
-            case "onMenuModifyFilterBooksClicked":
-                return onMenuModifyFilterBooksClicked;
+            case "onMenuAddSenderClicked":
+                return onMenuAddSenderClicked;
+
+            case "onMenuRemoveSenderClicked":
+                return onMenuRemoveSenderClicked;
+
+            case "onMenuAddRecipientClicked":
+                return onMenuAddRecipientClicked;
+
+            case "onMenuRemoveRecipientClicked":
+                return onMenuRemoveRecipientClicked;
         }
         throw new Error(`unknown menu handler: ${handlerName}`);
     } catch (e) {
@@ -729,7 +748,8 @@ async function initMenus(message) {
             console.log("saved menu config:", menus);
         }
 
-        const info = await selectedMessageInfo();
+        // FIXME
+        const info = await querySelectedMessages();
         await updateMessageDisplayAction(info.accountId, info.folderName);
 
         // clear initPending lock
@@ -745,50 +765,79 @@ async function initMenus(message) {
     }
 }
 
-// return the accountId of the currently selected messages
-async function selectedMessageInfo() {
+// return bool if messages are selected
+async function anyMessagesSelected() {
     try {
-        let ret = {};
         const tabs = await messenger.tabs.query({ type: "mail" });
         for (const tab of tabs) {
             const selected = await messenger.mailTabs.getSelectedMessages(tab.id);
             for (const message of selected.messages) {
-                const accountId = message.folder.accountId;
-                if (await isAccount(accountId)) {
-                    ret.accountId = accountId;
-                }
-                ret.folderName = message.folder.name;
-                break;
+                return true;
             }
-            break;
         }
-        return ret;
+        return false;
     } catch (e) {
         console.error(e);
     }
 }
 
-/*
-// return the tab of the currently selected messages
-async function selectedMessagesTab() {
+// return accountId, folderName, folderId, folderPath and optional array of currently selected messages
+async function querySelectedMessages(options = {}) {
     try {
+        let info = { count: 0 };
+        if (options.messages) {
+            info.messages = new Array();
+        }
         const tabs = await messenger.tabs.query({ type: "mail" });
         for (const tab of tabs) {
             const selected = await messenger.mailTabs.getSelectedMessages(tab.id);
             for (const message of selected.messages) {
-                const accountId = message.folder.accountId;
-                if (await isAccount(accountId)) {
-                    return tab;
+                if (await isAccount(message.folder.accountId)) {
+                    if (info.accountId) {
+                        if (info.accountId !== message.folder.accountId) {
+                            console.error("multiple accounts in selected messages");
+                            return {};
+                        }
+                    } else {
+                        info.accountId = message.folder.accountId;
+                    }
                 }
-                break;
+                if (info.folderName) {
+                    if (info.folderName !== message.folder.name) {
+                        console.error("multiple folder names in selected messages");
+                        return {};
+                    }
+                } else {
+                    info.folderName = message.folder.name;
+                }
+                if (info.folderId) {
+                    if (info.folderId !== message.folder.id) {
+                        console.error("multiple folder ids in selected messages");
+                        return {};
+                    }
+                } else {
+                    info.folderId = message.folder.id;
+                }
+
+                if (info.folderPath) {
+                    if (info.folderPath !== message.folder.path) {
+                        console.error("multiple folder paths in selected messages");
+                        return {};
+                    }
+                } else {
+                    info.folderPath = message.folder.path;
+                }
+                if (options.messages) {
+                    info.messages.push(message);
+                }
+                info.count++;
             }
-            break;
         }
+        return info;
     } catch (e) {
         console.error(e);
     }
 }
-*/
 
 async function updateMessageDisplayAction(accountId = undefined, folder = undefined) {
     try {
@@ -804,25 +853,20 @@ async function updateMessageDisplayAction(accountId = undefined, folder = undefi
             accountId = undefined;
         }
 
-        // check if there are selected messages to avoid messageDisplayAction.SetTitle hanging
-        const selectedMessages = await messenger.mailTabs.getSelectedMessages();
-        const messageDisplayed = selectedMessages.messages.length > 0;
-        console.log("messageDisplayed: ", messageDisplayed);
+        // check if there are selected messages to avoid messageDisplayAction.SetTitle hang
+        const enabled = await anyMessagesSelected();
 
         // save the accountId for use by message_display_action_menu onClicked
         await config.session.set(config.session.key.messageDisplayActionAccountId, accountId);
 
         if (approved && folder !== "Sent" && accountId !== undefined) {
             let targetBook = await getAddSenderTarget(accountId);
-            if (typeof targetBook === "string" && targetBook !== "") {
-                if (messageDisplayed) {
-                    await messenger.messageDisplayAction.setTitle({ title: `Add sender to '${targetBook}'` });
-                    await messenger.messageDisplayAction.enable();
-                }
-                return;
+            if (typeof targetBook === "string" && targetBook !== "" && enabled) {
+                await messenger.messageDisplayAction.setTitle({ title: `Add sender to '${targetBook}'` });
+                await messenger.messageDisplayAction.enable();
             }
         } else {
-            if (messageDisplayed) {
+            if (enabled) {
                 await messenger.messageDisplayAction.setTitle({ title: "" });
                 await messenger.messageDisplayAction.disable();
             }
@@ -967,26 +1011,6 @@ async function onMenuEvent(menuEvent, mids, info, tab) {
     }
 }
 
-/*
-async function setMenuInitPending(pendingTitle) {
-    try {
-        await config.session.set(config.session.key.menuPendingTitle, pendingTitle);
-        await messenger.menus.removeAll();
-        for (const [id, config] of Object.entries(menuConfig)) {
-            if (config.visibleWhilePending) {
-                if (id === "rmfMenuInitPending") {
-                    config.properties.title = pendingTitle;
-                }
-                await messenger.menus.update(id, config.properties);
-            }
-        }
-        await messenger.menus.refresh();
-    } catch (e) {
-        console.error(e);
-    }
-}
-*/
-
 async function getMenuItemVisibility(config, detail) {
     try {
         // if not in the selected context, item is invisible
@@ -1061,28 +1085,36 @@ async function setMenuVisibility(menus, detail) {
         }
         let refresh = false;
         let book = detail.accountId === undefined ? undefined : await getAddSenderTarget(detail.accountId);
+        let selectionPresent = await anyMessagesSelected();
         for (const config of Object.values(menus)) {
-            const wasVisible = config.properties.visible;
-            let changed = false;
+            // set item visibility
+            const original = Object.assign({}, config.properties);
             config.properties.visible = await getMenuItemVisibility(config, detail);
-            if (wasVisible !== config.properties.visible) {
-                changed = true;
+
+            // disable if no messages selected
+            if (config.requireSelection) {
+                config.properties.enabled = selectionPresent;
             }
+
+            // set default book checked state
             if (config.properties.visible && config.properties.type === "radio") {
-                // set default book checked state
-                const wasChecked = config.properties.checked;
                 config.properties.checked = config.properties.title === book;
-                if (wasChecked !== config.properties.checked) {
-                    changed = true;
-                }
-            }
-            if (changed) {
-                refresh = true;
             }
             if (verbose) {
                 console.debug("updating menu:", config.id, config.properties);
             }
-            await messenger.menus.update(config.id, config.properties);
+            let changed = false;
+            if (differ(original, config.properties)) {
+                changed = true;
+            }
+            if (!config.initialized) {
+                changed = true;
+                config.initialized = true;
+            }
+            if (changed) {
+                refresh = true;
+                await messenger.menus.update(config.id, config.properties);
+            }
         }
         if (refresh) {
             if (await config.session.getBool(config.session.key.menuInitPending)) {
@@ -1154,7 +1186,8 @@ async function menuEventDetail(info, tab) {
                 ret.hasAccount = true;
                 ret.accountId = await config.session.get(config.session.key.messageDisplayActionAccountId);
                 if (!ret.accountId) {
-                    const info = await selectedMessageInfo();
+                    // FIXME
+                    const info = await querySelectedMessages();
                     if (await isAccount(info.accountId)) {
                         ret.accountId = info.accountId;
                     }
@@ -1220,6 +1253,7 @@ function newBookMenuConfig(srcConfig, accountId, bookName, created) {
     try {
         let config = Object.assign({}, srcConfig);
         config.properties = Object.assign({}, srcConfig.properties);
+        config.dynamic = true;
         config.accountId = accountId;
         config.book = bookName;
         config.properties.title = config.properties.title.replace(/__book__/, bookName);
@@ -1306,6 +1340,12 @@ async function onMenuSieveTraceCreated(menus, created) {
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+//
+//  Address Book Filter actions
+//
+///////////////////////////////////////////////////////////////////////////////
+
 async function onMenuSieveTraceShown(target, detail) {
     try {
         if (verbose) {
@@ -1323,170 +1363,214 @@ async function onMenuSieveTraceShown(target, detail) {
     }
 }
 
-async function onMenuModifyFilterBooksClicked(config, detail) {
+async function validateOnClicked(config, detail, accountId, folderName, messages) {
+    try {
+        if (config.accountId && config.accountId !== accountId) {
+            throw new Error(`accountId mismatch config=${config.accountId} selected=${accountId}`);
+        }
+        if (detail.accountId && detail.accountId !== accountId) {
+            throw new Error(`accountId mismatch: detail=${config.accountId} selected=${accountId}`);
+        }
+        if (detail.folderName && detail.folderName !== folderName) {
+            throw new Error(`folder name mismatch`);
+        }
+        if (config.excludeFolders && config.excludeFolders.includes(folderName)) {
+            throw new Error(`disabled in ${folderName} folder`);
+        }
+        if (config.includeFolders && !config.includeFolders.includes(folderName)) {
+            throw new Error(`disabled outside ${folderName} folder`);
+        }
+        if (detail.info && detail.info.selectedMessages) {
+            if (differ(messages, detail.info.selectedMessages.messages)) {
+                const message = "The context-clicked message differs from the selected messages";
+                await messenger.servicesPrompt.alert("Ambiguous selection", message);
+                return false;
+            }
+        }
+        if (!(await isAccount(accountId))) {
+            throw new Error(`invalid account: ${accountId}`);
+        }
+        return true;
+    } catch (e) {
+        console.error(e);
+        return false;
+    }
+}
+
+async function onMenuAddSenderClicked(config, detail) {
     try {
         if (verbose) {
-            console.debug("onMenuModifyFilterBooksClicked:", config.id, { config, detail });
+            console.debug("onMenuAddSenderClicked:", config.id, { config, detail });
+        }
+        if (!config.dynamic) {
+            throw new Error(`config missing dynamic flag`);
+        }
+        const filterBook = config.book;
+        const selected = await querySelectedMessages({ messages: true });
+        if (await validateOnClicked(config, detail, selected.accountId, selected.folderName, selected.messages)) {
+            return await filterBookAction(ADD, SENDER, selected.accountId, filterBook, selected.messages, filterBook);
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+// add selected messages to named filterbook
+async function addSenderToFilterBook(accountId, filterBook) {
+    try {
+        if (verbose) {
+            console.debug("onMenuRemoveSenderClicked:", accountId, filterBook);
+        }
+        const selected = await querySelectedMessages({ messages: true });
+        if (!selected) {
+            throw new Error("querySelectedMessages failed");
+        }
+        let config = {
+            excludeFolders: ["Sent", "Drafts"],
+        };
+        if (await validateOnClicked(config, {}, accountId, selected.folderName, selected.messages)) {
+            await filterBookAction(ADD, SENDER, accountId, filterBook, selected.messages, filterBook);
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function onMenuRemoveSenderClicked(config, detail) {
+    try {
+        if (verbose) {
+            console.debug("onMenuRemoveSenderClicked:", config.id, { config, detail });
+        }
+        const selected = await querySelectedMessages({ messages: true });
+        if (await validateOnClicked(config, detail, selected.accountId, selected.folderName, selected.messages)) {
+            return await filterBookAction(REMOVE, SENDER, selected.accountId, "all filterbooks", selected.messages, "inbox");
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function onMenuAddRecipientClicked(config, detail) {
+    try {
+        if (verbose) {
+            console.debug("onMenuAddRecipientClicked:", config.id, { config, detail });
+        }
+        const selected = await querySelectedMessages({ messages: true });
+        if (await validateOnClicked(config, detail, selected.accountId, selected.folderName, selected.messages)) {
+            return await filterBookAction(ADD, RECIPIENT, selected.accountId, "whitelist", selected.messages, false);
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function onMenuRemoveRecipientClicked(config, detail) {
+    try {
+        if (verbose) {
+            console.debug("onMenuRemoveRecipientClicked:", config.id, { config, detail });
+        }
+        const selected = await querySelectedMessages({ messages: true });
+        if (await validateOnClicked(config, detail, selected.accountId, selected.folderName, selected.messages)) {
+            return await filterBookAction(REMOVE, RECIPIENT, selected.accountId, "whitelist", selected.messages, false);
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function filterBookAction(action, addressType, accountId, filterBook, messages, moveDestination = undefined) {
+    try {
+        if (verbose) {
+            console.log("doFilterBookAction: ", action, addressType, accountId, filterBook, messages, moveDestination);
         }
 
-        let verb = "";
-        let direction = "";
-        let addressType = "";
-        let filterBook = "";
-        let addresses = new Array();
-        let moveToInbox = false;
-        let moveToFilterBook = false;
-        let menuId = detail.info.menuItemId;
-        let folders = new Map();
-
-        switch (detail.info.menuItemId) {
-            case "rmfAddRecipientsMessageList":
-                if (detail.folderName !== "Sent") {
-                    console.warn("onMenuAddRecipientsClicked: not in Sent folder");
-                    return;
-                }
-                verb = "Add";
-                addressType = "recipient";
-                direction = "to";
-                filterBook = "whitelist";
-                addresses = await scanMessageListAddresses(folders, addressType, detail.info.selectedMessages.messages);
+        let op = {};
+        switch (action) {
+            case ADD:
+                op.action = "Add";
+                op.actioning = "Adding";
+                op.actioned = "Added";
+                op.direction = "to";
                 break;
-            case "rmfRemoveRecipientsMessageList":
-                if (detail.folderName !== "Sent") {
-                    console.warn("onMenuAddRecipientsClicked: not in Sent folder");
-                    return;
-                }
-                verb = "Remove";
-                addressType = "recipient";
-                direction = "from";
-                filterBook = "whitelist";
-                addresses = await scanMessageListAddresses(folders, addressType, detail.info.selectedMessages.messages);
-                break;
-            case "rmfRemoveSenderMessageList":
-                verb = "Remove";
-                addressType = "sender";
-                direction = "from";
-                filterBook = "all FilterBooks";
-                addresses = await scanMessageListAddresses(folders, addressType, detail.info.selectedMessages.messages);
-                moveToInbox = true;
+            case REMOVE:
+                op.action = "Remove";
+                op.actioning = "Removing";
+                op.actioned = "Removed";
+                op.direction = "from";
                 break;
             default:
-                if (menuId.startsWith("rmfAddSenderMessageList;")) {
-                    const parts = menuId.split(";");
-                    if (parts.length !== 4) {
-                        throw new Error(`unexpected menuId: ${menuId}`);
-                    }
-                    verb = "Add";
-                    addressType = "sender";
-                    direction = "to";
-                    detail.accountId = parts[2];
-                    filterBook = parts[3];
-                    addresses = await scanMessageListAddresses(folders, addressType, detail.info.selectedMessages.messages);
-                    moveToFilterBook = true;
-                } else if (menuId.startsWith("rmfAddSenderMessageDisplayAction;")) {
-                    const parts = menuId.split(";");
-                    if (parts.length !== 4) {
-                        throw new Error(`unexpected menuId: ${menuId}`);
-                    }
-                    verb = "Add";
-                    addressType = "sender";
-                    direction = "to";
-                    detail.accountId = parts[2];
-                    filterBook = parts[3];
-                    const selectedMessages = await messenger.mailTabs.getSelectedMessages();
-                    if (selectedMessages.messages.length < 1) {
-                        console.warn("no messages selected");
-                        return;
-                    }
-                    addresses = await scanMessageListAddresses(folders, addressType, selectedMessages.messages);
-                    moveToFilterBook = true;
-                } else {
-                    throw new Error(`unexpected menu id: ${detail.info.menuItemId}`);
-                }
-                break;
+                console.error("unknown action: ", action);
+                return;
         }
 
+        const addresses = await scanMessageAddresses(addressType, messages);
         if (addresses.length < 1) {
             console.warn("no addresses selected");
             return false;
         }
 
+        const fids = await scanMessageFolderIds(messages);
+        if (fids.length !== 1) {
+            console.warn("multiple folders selected");
+            return false;
+        }
+        const folderId = fids[0];
+
         const filterctl = await getFilterDataController();
         const total = addresses.length;
-        let suffix = "es";
+
+        op.description = "addresses";
         if (total === 1) {
-            suffix = "";
+            op.description = "address";
         }
-        let message = `${verb} ${total} ${addressType} address${suffix} ${direction} ${filterBook}?`;
+
+        let message = `${op.action} ${total} ${addressType} ${op.description} ${op.direction} ${filterBook}?`;
         let confirmed = true;
         if (total > 1) {
             confirmed = await messenger.servicesPrompt.confirm(
-                "Confirm ${verb} ${total} address${suffix} ${direction} ${filterBook}",
+                "Confirm ${op.action} ${total} ${op.description} ${op.direction} ${filterBook}",
                 message,
             );
         }
         if (confirmed) {
-            const display = await displayProcess(`${verb}ing ${addressType} address${suffix} ${direction} ${filterBook}...`, 0, total);
+            const display = await displayProcess(
+                `${op.actioning} ${addressType} ${op.description} ${op.direction} ${filterBook}...`,
+                0,
+                total,
+            );
             let count = 0;
             for (const address of addresses) {
-                const status = `${verb}ing ${addressType} ${address} ${direction} ${filterBook}`;
+                const status = `${op.actioning} ${addressType} ${op.description} ${op.direction} ${filterBook}`;
                 await display.update(status, ++count);
                 if (verbose) {
                     console.log(status);
                 }
-                switch (verb) {
-                    case "Add":
-                        await filterctl.addAddressToFilterBook(detail.accountId, address, filterBook);
+                switch (action) {
+                    case ADD:
+                        await filterctl.addAddressToFilterBook(accountId, address, filterBook);
                         break;
-                    case "Remove":
-                        await filterctl.removeAddressFromFilterBooks(detail.accountId, address);
+                    case REMOVE:
+                        await filterctl.removeAddressFromFilterBooks(accountId, address);
                         break;
                     default:
-                        throw new Error(`Unexpected verb: ${verb}`);
+                        throw new Error(`Unexpected action: ${action}`);
                 }
-                for (const folderPath of Array.from(folders.keys())) {
-                    if (moveToInbox) {
-                        const messageIds = await scanMessageFolderMatchingAddresses(
-                            detail.accountId,
-                            folderPath,
-                            addressType,
-                            address,
-                        );
-                        await moveMessagesToInbox(detail.accountId, messageIds);
-                    }
-                    if (moveToFilterBook) {
-                        const messageIds = await scanMessageFolderMatchingAddresses(
-                            detail.accountId,
-                            folderPath,
-                            addressType,
-                            address,
-                        );
-                        await moveMessagesToFilterBook(detail.accountId, filterBook, messageIds);
+                if (moveDestination) {
+                    const messageIds = await scanMessageFolderMatchingAddresses(accountId, folderId, addressType, address);
+                    if (moveDestination === "inbox") {
+                        await moveMessagesToInbox(accountId, messageIds);
+                    } else {
+                        await moveMessagesToFilterBook(accountId, moveDestination, messageIds);
                     }
                 }
             }
-            await display.complete(`${verb}ed ${total} ${addressType} address${suffix} ${direction} ${filterBook}`);
+            await display.complete(`${op.actioned} ${total} ${addressType} ${op.description} ${op.direction} ${filterBook}`);
         }
         return true;
     } catch (e) {
         console.error(e);
     }
 }
-
-async function addSenderToFilterbook(accountId, messageIds, filterbook, moveAll) {
-    try {
-    } catch(e) {
-	console.error(e);
-    }
-}
-
-async function addSenderToFilterbook(accountId, messageIds, filterbook, moveAll) {
-    try {
-    } catch(e) {
-	console.error(e);
-    }
-}
-
 
 async function onMenuSieveTraceClicked(target, detail) {
     try {
@@ -1561,21 +1645,20 @@ async function onActionButtonClicked(tab, info) {
 }
 
 // update checkmark on selected filter book
-async function onMenuSelectBookClicked(target, detail) {
+async function onMenuSelectBookClicked(config, detail) {
     try {
         if (verbose) {
-            console.log("onMenuSelectBookClicked:", target.id, {
-                target,
+            console.log("onMenuSelectBookClicked:", config.id, {
+                config,
                 detail,
             });
         }
-        let folderName = undefined;
-        for (const folder of await messenger.mailTabs.getSelectedFolders()) {
-            folderName = folder.name;
-            break;
+        const info = await querySelectedMessages();
+        if (!info) {
+            throw new Error("selected message query failed");
         }
-        await setAddSenderTarget(target.accountId, target.book);
-        await updateMessageDisplayAction(target.accountId, folderName);
+        await setAddSenderTarget(config.accountId, config.book);
+        await updateMessageDisplayAction(config.accountId, info.folderName);
     } catch (e) {
         console.error(e);
     }
@@ -1605,6 +1688,7 @@ async function onMenuOpenRescansClicked(target, detail) {
 
 async function onMenuRescanFolderClicked(target, detail) {
     try {
+        // FIXME: check onClick parameters
         if (verbose) {
             console.log("onMenuRescanFolderClicked:", target.id, {
                 target,
@@ -1615,6 +1699,7 @@ async function onMenuRescanFolderClicked(target, detail) {
             let account = await getAccount(folder.accountId);
             let path = folder.path;
             await requestRescan(account, path, [], `Rescanning all messages in folder '${folder.path}'...`);
+            await focusRescanWindow();
         }
     } catch (e) {
         console.error(e);
@@ -1629,6 +1714,7 @@ async function onMenuRescanMessagesClicked(target, detail) {
                 detail,
             });
         }
+        // FIXME: check onClick parameters
         let account = await getAccount(detail.info.displayedFolder.accountId);
         let path = detail.info.displayedFolder.path;
         let messageIds = [];
@@ -1648,9 +1734,11 @@ async function onMenuRescanMessagesClicked(target, detail) {
             }
         }
 
-        if (messageIds.length > 0) {
-            await requestRescan(account, path, messageIds);
+        if (messageIds.length === 0) {
+            return;
         }
+        await requestRescan(account, path, messageIds);
+        await focusRescanWindow();
     } catch (e) {
         console.error(e);
     }
@@ -1758,217 +1846,8 @@ async function setAddSenderTarget(accountId, bookName, folderName = undefined) {
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
-//
-//  Address Book Filter actions
-//
-///////////////////////////////////////////////////////////////////////////////
-
-/*
-async function onMenuAddSenderClicked(target, detail) {
-    try {
-        // NOTE: event target,detail contain messages context-clicked, which
-        // will differ from the selected messages
-        // TODO: ensure the context-clicked messages are acted upon, rather than the selected messages
-
-        if (verbose) {
-            console.debug("onMenuAddSenderClicked:", target.id, { target, detail });
-        }
-        const fields = target.id.split(";");
-        const mid = fields[0];
-        const accountId = fields[2];
-        const bookName = fields[3];
-        let messageList = undefined;
-        if (mid === "rmfAddSenderMessageList") {
-            // this is a context-click in the message list
-            // get target messages from the event info
-            messageList = detail.info.selectedMessages;
-        } else if (mid === "rmfAddSenderMessageDisplayAction") {
-            // this is a message display action menu click // get target messages from the mailTab selected messages
-            messageList = await messenger.mailTabs.getSelectedMessages(detail.tab.id);
-        } else {
-            throw new Error(`Unexpected menuId: ${target.id}`);
-        }
-        await addSenderToFilterBook(accountId, bookName, messageList);
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-async function onMenuRemoveSenderClicked(target, detail) {
-    try {
-        // NOTE: event target,detail contain messages context-clicked, which
-        // will differ from the selected messages
-        // TODO: ensure the context-clicked messages are acted upon, rather than the selected messages
-
-        if (verbose) {
-            console.debug("onMenuRemoveSenderClicked:", target.id, { target, detail });
-        }
-        let messageList = undefined;
-        if (target.id === "rmfRemoveSenderMessageList") {
-            // this is a context-click in the message list
-            // get target messages from the event info
-            messageList = detail.info.selectedMessages;
-        } else {
-            throw new Error(`Unexpected menuId: ${target.id}`);
-        }
-        await removeSenderFromFilterBooks(detail.accountId, messageList);
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-// perform 'addSender' function on messageList
-// TODO: move messages to FilterBook folder
-// TODO: scan message folder for other messages with matching From address and move to FilterBook folder
-async function addSenderToFilterBook(accountId, book, messageList) {
-    try {
-        if (verbose) {
-            console.debug("addSenderToFilterBook:", { accountId, book, messageList });
-        }
-
-        // sendersAdded prevents multiple calls to processAddSender for the same From address
-        let sendersAdded = new Map();
-
-        const filterctl = await getFilterDataController();
-
-        let folderIds = new Map();
-        let messageIds = new Map();
-
-        let page = messageList;
-        let messages = page.messages;
-        while (messages.length) {
-            for (const message of messages) {
-                if (accountId !== message.folder.accountId) {
-                    console.error("message folder account mismatch:", { accountId, book, message });
-                    throw new Error("message folder account mismatch");
-                }
-                var sender = String(message.author)
-                    .replace(/^[^<]*</g, "")
-                    .replace(/>.*$/g, "");
-
-                if (!sendersAdded.has(sender)) {
-                    // NOTE: not awaiting processAddSender
-                    processAddSender(filterctl, accountId, sender, book);
-                    sendersAdded.set(sender, true);
-                }
-                messageIds.set(message.id, true);
-                folderIds.set(message.folder.id, true);
-            }
-            if (page.id) {
-                page = await messenger.messages.continueList(page.id);
-                messages = page.messages;
-            } else {
-                break;
-            }
-        }
-
-        if (await config.local.getBool(config.local.key.addSenderFolderScan)) {
-            for (const senderAddress of sendersAdded.keys()) {
-                for (const folderId of folderIds.keys()) {
-                    let scanIds = await scanFolderMessageSender(accountId, folderId, senderAddress);
-                    for (const messageId of scanIds) {
-                        messageIds.set(messageId, true);
-                    }
-                }
-            }
-        }
-        await moveMessagesToFilterBook(accountId, book, Array.from(messageIds.keys()));
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-// perform 'removeSender' function on messageList
-async function removeSenderFromFilterBooks(accountId, messageList) {
-    try {
-        if (verbose) {
-            console.debug("removeSenderFromFilterBooks:", { accountId, messageList });
-        }
-
-        // sendersAdded prevents multiple calls to processAddSender for the same From address
-        let sendersAdded = new Map();
-
-        const filterctl = await getFilterDataController();
-
-        let folderIds = new Map();
-        let messageIds = new Map();
-
-        // scan selected messages using boilerplate for paged messages data
-        let page = messageList;
-        let messages = page.messages;
-        while (messages.length) {
-            for (const message of messages) {
-                if (accountId !== message.folder.accountId) {
-                    console.error("message folder account mismatch:", { accountId, message });
-                    throw new Error("message folder account mismatch");
-                }
-                var sender = String(message.author)
-                    .replace(/^[^<]*</g, "")
-                    .replace(/>.*$/g, "");
-
-                if (!sendersAdded.has(sender)) {
-                    // remove the sender address for a selected message
-                    processRemoveSender(filterctl, accountId, sender);
-                    // remember processed sender addresses
-                    sendersAdded.set(sender, true);
-                }
-                messageIds.set(message.id, true);
-                folderIds.set(message.folder.id, true);
-            }
-            if (page.id) {
-                page = await messenger.messages.continueList(page.id);
-                messages = page.messages;
-            } else {
-                break;
-            }
-        }
-
-        // scan folders for all matching sender addresses
-        if (await config.local.getBool(config.local.key.addSenderFolderScan)) {
-            for (const senderAddress of sendersAdded.keys()) {
-                for (const folderId of folderIds.keys()) {
-                    let scanIds = await scanFolderMessageSender(accountId, folderId, senderAddress);
-                    for (const messageId of scanIds) {
-                        messageIds.set(messageId, true);
-                    }
-                }
-            }
-        }
-        // move matching addresses to INBOX
-        await moveMessagesToInbox(accountId, Array.from(messageIds.keys()));
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-async function scanFolderMessageSender(accountId, folderId, senderAddress) {
-    try {
-        console.log("scanFolderMessageSender:", { accountId, folderId, senderAddress });
-        let messageIds = [];
-        let pageId = await messenger.messages.query({
-            accountId,
-            folderId,
-            author: senderAddress,
-            returnMessageListId: true,
-        });
-        while (pageId) {
-            let page = await messenger.messages.continueList(pageId);
-            for (const message of page.messages) {
-                console.log("adding:", message.id, message);
-                messageIds.push(message.id);
-            }
-            pageId = page.id;
-        }
-        return messageIds;
-    } catch (e) {
-        console.error(e);
-    }
-}
-*/
-
 // parse email addresses from strings in addressList and set each as a key in addressMap
-async function addParsedAddresses(addressMap, addressList) {
+async function mapParsedAddresses(addressMap, addressList) {
     try {
         for (const address of addressList) {
             const parsedAddrs = await messenger.messengerUtilities.parseMailboxString(address);
@@ -1987,27 +1866,41 @@ async function addParsedAddresses(addressMap, addressList) {
 }
 
 // scan a messageList and return a list of unique sender or recipient addresses
-// side effect: set folderIDs as keys in folders map
-async function scanMessageListAddresses(folders, addressType, messageList) {
+async function scanMessageAddresses(addressType, messages) {
     try {
         if (verbose) {
-            console.log("scanMessageListAddresses:", { addressType, messageList });
+            console.log("scanMessageListAddresses:", { addressType, messages });
         }
         let addrs = new Map();
-        for (const message of messageList) {
-            folders.set(message.folder.id, true);
+        for (const message of messages) {
             switch (addressType) {
                 case "recipient":
-                    addrs = await addParsedAddresses(addrs, message.recipients);
+                    addrs = await mapParsedAddresses(addrs, message.recipients);
                     break;
                 case "sender":
-                    addrs = await addParsedAddresses(addrs, [message.author]);
+                    addrs = await mapParsedAddresses(addrs, [message.author]);
                     break;
                 default:
                     throw new Error(`unexpected addressType: ${addressType}`);
             }
         }
         return Array.from(addrs.keys());
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+// return array of unique folderIds from list of messages
+async function scanMessageFolderIds(messages) {
+    try {
+        if (verbose) {
+            console.log("scanMessageFolders:", messages);
+        }
+        let folders = new Map();
+        for (const message of messages) {
+            folders.set(message.folder.id, true);
+        }
+        return Array.from(folders.keys());
     } catch (e) {
         console.error(e);
     }
@@ -2049,54 +1942,6 @@ async function scanMessageFolderMatchingAddresses(accountId, folderId, addressTy
         console.error(e);
     }
 }
-
-/*
-async function processAddSender(filterctl, accountId, sender, book) {
-    try {
-        if (verbose) {
-            console.log("AddSender request:", accountId, sender, book);
-        }
-        let display = await displayProcess(`Adding '${sender}' to '${book}'...`, 0, 10, { ticker: 1 });
-        try {
-            let response = await filterctl.addAddressToFilterBook(accountId, sender, book);
-            await display.complete(`Added '${sender}' to '${book}'`);
-            if (verbose) {
-                console.log("AddSender completed:", accountId, sender, book, response);
-            }
-        } catch (e) {
-            await display.fail(`AddSender '${sender}' to '${book}' failed: ${e}`);
-            if (verbose) {
-                console.error("AddSender failed:", accountId, sender, book, e);
-            }
-        }
-    } catch (e) {
-        console.error(e);
-    }
-}
-
-async function processRemoveSender(filterctl, accountId, sender) {
-    try {
-        if (verbose) {
-            console.log("RemoveSender request:", accountId, sender);
-        }
-        let display = await displayProcess(`Removing '${sender}' from all FilterBooks...`, 0, 10, { ticker: 1 });
-        try {
-            let response = await filterctl.removeAddressFromFilterBooks(accountId, sender);
-            await display.complete(`Remove '${sender}' from all FilterBooks`);
-            if (verbose) {
-                console.log("RemoveSender completed:", accountId, sender, response);
-            }
-        } catch (e) {
-            await display.fail(`RemoveSender '${sender}' from all FilterBooks failed: ${e}`);
-            if (verbose) {
-                console.error("RemoveSender failed:", accountId, sender, e);
-            }
-        }
-    } catch (e) {
-        console.error(e);
-    }
-}
-*/
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -2526,44 +2371,38 @@ async function onMessageDisplayActionClicked(tab, info) {
         }
 
         if (tab.type !== "mail") {
-            // only process mail tab clicks
             console.warn("outside mail tab");
             return;
         }
 
-        const messageList = await messenger.mailTabs.getSelectedMessages(tab.id);
-
-        if (messageList.messages.length < 1) {
-            console.warn("no messages selected");
-            return;
+        const selectedMessages = await querySelectedMessages({ messages: true });
+        if (!selectedMessages) {
+            throw new Error("selected message query failed");
         }
-
-        const accountId = messageList.messages[0].folder.accountId;
+        switch (selectedMessages.count) {
+            case 0:
+                return;
+            case 1:
+                break;
+            default:
+                throw new Error("multiple messages selected");
+        }
+        switch (selectedMessages.folderName) {
+            case "Sent":
+            case "Drafts":
+                throw new Error(`disabled in ${selectedMessages.folderName} folder`);
+        }
+        const accountId = await config.session.get(config.session.key.messageDisplayActionAccountId);
         if (!(await isAccount(accountId))) {
-            console.warn("disabled accountId: ", accountId);
-            return;
+            throw new Error(`invalid account ${accountId}`);
+        }
+        if (accountId !== selectedMessages.accountId) {
+            throw new Error(`account mismatch: expected ${accountId}, got ${selectedMessages.accountId}`);
         }
 
-        const folderName = messageList.messages[0].folder.name;
-        if (folderName === "Sent") {
-            console.warn("message display action click in Sent folder");
-            return;
-        }
-        const bookName = await getAddSenderTarget(accountId);
-        // spoof menu event params
-        const config = { id: `rmfAddSenderMessageList;message_display_action;${accountId};${bookName}` };
-        const detail = {
-            folderName,
-            accountId,
-            info: {
-                menuItemId: config.id,
-                selectedMessages: messageList,
-                contexts: ["message_display_action"],
-            },
-            context: "message_display_action",
-        };
-        // pass the spoofed menu event params
-        await onMenuModifyFilterBooksClicked(config, detail);
+        const filterBook = await getAddSenderTarget(accountId);
+        return await filterBookAction(ADD, SENDER, accountId, filterBook, selectedMessages.messages, filterBook);
+
     } catch (e) {
         console.error(e);
     }
