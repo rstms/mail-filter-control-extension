@@ -8,7 +8,7 @@ export const menuConfig = {
     rmfControlPanel: {
         properties: {
             title: "Mail Filter Control Panel",
-            contexts: ["tools_menu", "action", "folder_pane"],
+            contexts: ["tools_menu", "action", "message_list", "message_display_action"],
         },
         onClicked: "onMenuControlPanelClicked",
     },

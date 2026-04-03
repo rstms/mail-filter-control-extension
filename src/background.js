@@ -877,10 +877,12 @@ async function getMenuItemVisibility(config, detail) {
         // these menu ids are always visible if in context
         switch (config.id) {
             case "rmfControlPanel":
-                if (detail.context !== "folder_pane") {
-                    return true;
+                switch (detail.context) {
+                    case "tools_menu":
+                    case "action":
+                        return true;
                 }
-                break;
+                return false;
             case "rmfOpenRescans":
                 return true;
         }
