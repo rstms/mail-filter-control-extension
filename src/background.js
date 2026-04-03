@@ -623,7 +623,7 @@ async function handleMessage(message, sender) {
                 response = await handleGetPassword(message);
                 break;
             case "setAddSenderTarget":
-                response = await setAddSenderTarget(message.accountId, message.bookName);
+                response = await setAddSenderTarget(message.accountId, message.bookName, { fromHandleMessage: true });
                 break;
             case "getAddSenderTarget":
                 response = await getAddSenderTarget(message.accountId);
@@ -711,7 +711,6 @@ async function getMenus() {
 }
 
 // reset menu configuration from menu config data structure
-// FIXME: why is this so slow?
 async function initMenus(message) {
     try {
         // check initPending lock
@@ -748,7 +747,6 @@ async function initMenus(message) {
             console.log("saved menu config:", menus);
         }
 
-        // FIXME
         const info = await querySelectedMessages();
         await updateMessageDisplayAction(info.accountId, info.folderName);
 
@@ -1185,8 +1183,8 @@ async function menuEventDetail(info, tab) {
                 // get accountId from the value stored by onDisplayedFolderChanged handler
                 ret.hasAccount = true;
                 ret.accountId = await config.session.get(config.session.key.messageDisplayActionAccountId);
+                ret.folderName = undefined;
                 if (!ret.accountId) {
-                    // FIXME
                     const info = await querySelectedMessages();
                     if (await isAccount(info.accountId)) {
                         ret.accountId = info.accountId;
@@ -1524,7 +1522,8 @@ async function filterBookAction(action, addressType, accountId, filterBook, mess
             op.description = "address";
         }
 
-        let message = `${op.action} ${total} ${addressType} ${op.description} ${op.direction} ${filterBook}?`;
+        const title = `${op.action} ${addressType} ${op.direction} ${filterBook}`;
+        const message = `${op.action} ${total} ${addressType} ${op.description} ${op.direction} ${filterBook}?`;
         let confirmed = true;
         if (total > 1) {
             confirmed = await messenger.servicesPrompt.confirm(
@@ -1534,13 +1533,13 @@ async function filterBookAction(action, addressType, accountId, filterBook, mess
         }
         if (confirmed) {
             const display = await displayProcess(
-                `${op.actioning} ${addressType} ${op.description} ${op.direction} ${filterBook}...`,
+                `${title} - ${op.actioning} ${addressType} ${op.description} ${op.direction} ${filterBook}...`,
                 0,
                 total,
             );
             let count = 0;
             for (const address of addresses) {
-                const status = `${op.actioning} ${addressType} ${op.description} ${op.direction} ${filterBook}`;
+                const status = `${title} - ${op.actioning} ${addressType} ${op.description} ${op.direction} ${filterBook}`;
                 await display.update(status, ++count);
                 if (verbose) {
                     console.log(status);
@@ -1558,13 +1557,15 @@ async function filterBookAction(action, addressType, accountId, filterBook, mess
                 if (moveDestination) {
                     const messageIds = await scanMessageFolderMatchingAddresses(accountId, folderId, addressType, address);
                     if (moveDestination === "inbox") {
-                        await moveMessagesToInbox(accountId, messageIds);
+                        await moveMessagesToInbox(title, accountId, messageIds);
                     } else {
-                        await moveMessagesToFilterBook(accountId, moveDestination, messageIds);
+                        await moveMessagesToFilterBook(title, accountId, moveDestination, messageIds);
                     }
                 }
             }
-            await display.complete(`${op.actioned} ${total} ${addressType} ${op.description} ${op.direction} ${filterBook}`);
+            await display.complete(
+                `${title} - ${op.actioned} ${total} ${addressType} ${op.description} ${op.direction} ${filterBook}`,
+            );
         }
         return true;
     } catch (e) {
@@ -1698,8 +1699,9 @@ async function onMenuRescanFolderClicked(target, detail) {
         for (const folder of detail.info.selectedFolders) {
             let account = await getAccount(folder.accountId);
             let path = folder.path;
-            await requestRescan(account, path, [], `Rescanning all messages in folder '${folder.path}'...`);
-            await focusRescanWindow();
+            if (await requestRescan(account, path, [], `Rescanning all messages in folder '${folder.path}'...`)) {
+                await focusRescanWindow();
+            }
         }
     } catch (e) {
         console.error(e);
@@ -1737,8 +1739,9 @@ async function onMenuRescanMessagesClicked(target, detail) {
         if (messageIds.length === 0) {
             return;
         }
-        await requestRescan(account, path, messageIds);
-        await focusRescanWindow();
+        if (await requestRescan(account, path, messageIds)) {
+            await focusRescanWindow();
+        }
     } catch (e) {
         console.error(e);
     }
@@ -1761,6 +1764,7 @@ async function requestRescan(account, path, messageIds) {
         }
         await findContentTab("rescan", true);
         await updateActiveRescans(response);
+        return true;
     } catch (e) {
         console.error(e);
     }
@@ -1789,7 +1793,7 @@ async function getAddSenderTarget(accountId) {
             }
             for (const bookName of bookNames) {
                 // select the first book
-                await setAddSenderTarget(accountId, bookName);
+                //await setAddSenderTarget(accountId, bookName);
                 return bookName;
             }
         }
@@ -1812,12 +1816,12 @@ async function getBookNames(accountId, force = false) {
     }
 }
 
-async function setAddSenderTarget(accountId, bookName, folderName = undefined) {
+async function setAddSenderTarget(accountId, bookName, folderName = undefined, options = {}) {
     try {
         // side effect: throw error if invalid id
         await getAccount(accountId);
         let targets = await config.local.get(config.local.key.addSenderTarget);
-        if (targets === undefined) {
+        if (!targets) {
             targets = {};
         }
         if (bookName !== targets[accountId]) {
@@ -1828,15 +1832,17 @@ async function setAddSenderTarget(accountId, bookName, folderName = undefined) {
             }
 
             // inform editor the addSender Target has Changed
-            await sendMessage({
-                id: "addSenderTargetChanged",
-                accountId: accountId,
-                bookName: bookName,
-                dst: "editor",
-            });
+            if (!options.fromHandleMessage) {
+                await sendMessage({
+                    id: "addSenderTargetChanged",
+                    accountId: accountId,
+                    bookName: bookName,
+                    dst: "editor",
+                });
+            }
 
             // update the message display action button
-            let messageDisplayActionAccountId = await config.session.get(config.session.key.messageDisplayActionAccountId);
+            const messageDisplayActionAccountId = await config.session.get(config.session.key.messageDisplayActionAccountId);
             if (messageDisplayActionAccountId === accountId) {
                 await updateMessageDisplayAction(accountId, folderName);
             }
@@ -2402,7 +2408,6 @@ async function onMessageDisplayActionClicked(tab, info) {
 
         const filterBook = await getAddSenderTarget(accountId);
         return await filterBookAction(ADD, SENDER, accountId, filterBook, selectedMessages.messages, filterBook);
-
     } catch (e) {
         console.error(e);
     }
