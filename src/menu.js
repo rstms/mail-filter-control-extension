@@ -8,7 +8,7 @@ export const menuConfig = {
     rmfControlPanel: {
         properties: {
             title: "Mail Filter Control Panel",
-            contexts: ["tools_menu", "action", "message_list", "message_display_action"],
+            contexts: ["tools_menu", "action"],
         },
         onClicked: "onMenuControlPanelClicked",
     },
@@ -21,6 +21,37 @@ export const menuConfig = {
         onClicked: "onMenuOpenRescansClicked",
     },
 
+    /*
+    rmfSelectAddSenderSeparator: {
+        properties: {
+            type: "separator",
+            contexts: ["message_display_action"],
+        },
+        excludeFolders: ["Sent"],
+    },
+    */
+
+    rmfSelectAddSenderTarget: {
+        properties: {
+            title: "Select 'Add Sender' Target",
+            contexts: ["message_display_action"],
+        },
+        onCreated: "onMenuAddBooksCreated",
+        subId: "rmfTargetBook",
+        excludeFolders: ["Sent"],
+    },
+
+    rmfTargetBook: {
+        account: "__account__",
+        properties: {
+            title: "__book__",
+            type: "radio",
+            parentId: "rmfSelectAddSenderTarget",
+        },
+        noInit: true,
+        onClicked: "onMenuSelectBookClicked",
+        excludeFolders: ["Sent"],
+    },
     rmfAddSenderMessageList: {
         properties: {
             title: "Add Sender to Filter Book",
@@ -128,35 +159,5 @@ export const menuConfig = {
         noInit: true,
         excludeFolders: ["Sent"],
         requireSelection: true,
-    },
-
-    rmfSelectAddSenderSeparator: {
-        properties: {
-            type: "separator",
-            contexts: ["message_display_action"],
-        },
-        excludeFolders: ["Sent"],
-    },
-
-    rmfSelectAddSenderTarget: {
-        properties: {
-            title: "Select 'Add Sender' Target",
-            contexts: ["message_display_action"],
-        },
-        onCreated: "onMenuAddBooksCreated",
-        subId: "rmfTargetBook",
-        excludeFolders: ["Sent"],
-    },
-
-    rmfTargetBook: {
-        account: "__account__",
-        properties: {
-            title: "__book__",
-            type: "radio",
-            parentId: "rmfSelectAddSenderTarget",
-        },
-        noInit: true,
-        onClicked: "onMenuSelectBookClicked",
-        excludeFolders: ["Sent"],
     },
 };
