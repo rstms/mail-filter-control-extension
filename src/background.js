@@ -1,5 +1,3 @@
-//console.warn("BEGIN background.js");
-
 import { isAccount, getAccounts, getAccount, getSelectedAccount } from "./accounts.js";
 import { accountEmailAddress, differ } from "./common.js";
 import { displayProcess } from "./display.js";
@@ -753,6 +751,9 @@ async function createMenu(menus, mid, config) {
         }
         let properties = Object.assign({}, config.properties);
         properties.id = mid;
+	if(verbose) {
+	    console.warn("messenger.menus.create:", mid, properties);
+	}
         let cid = await messenger.menus.create(properties);
         console.assert(cid === mid);
         let created = Object.assign({}, config);
@@ -982,14 +983,14 @@ async function setMenuVisibility(menus, detail) {
             if (changed) {
                 refresh = true;
                 if (verbose) {
-                    console.warn("messenger.menus.update: ", config.id, config.properties);
+                    console.warn("messenger.menus.update:", config.id, config.properties);
                 }
                 await messenger.menus.update(config.id, config.properties);
             }
         }
         if (refresh) {
             if (await config.session.getBool(config.session.key.menuInitPending)) {
-                console.warn("skipping menu refresh during init pending: ", config.id);
+                console.warn("skipping menu refresh during init pending:", config.id);
             } else {
                 if (verbose) {
                     console.warn("messenger.menus.refresh");
@@ -1111,9 +1112,6 @@ async function onMenuAddBooksCreated(menus, created) {
                 for (const bookName of await getBookNames(accountId)) {
                     let config = newBookMenuConfig(menuConfig[created.subId], accountId, bookName, created);
                     let bookMenuId = `${created.id};${accountEmail};${accountId};${bookName}`;
-                    if (verbose) {
-                        console.warn(`createMenu: ${bookMenuId}: `, config);
-                    }
                     await createMenu(menus, bookMenuId, config);
                 }
             } else {
@@ -1231,7 +1229,7 @@ async function onMenuSieveTraceShown(target, detail) {
         if (detail.accountId === undefined || detail.accountId === "") {
             const properties = { visible: false };
             if (verbose) {
-                console.warn("messenger.menus.update: ", target.id, properties);
+                console.warn("messenger.menus.update:", target.id, properties);
             }
             await messenger.menus.update(target.id, properties);
             return true;
@@ -1473,7 +1471,7 @@ async function onMenuSieveTraceClicked(target, detail) {
         await setSieveTrace(detail.accountId, isEnabled);
         const properties = { checked: isEnabled };
         if (verbose) {
-            console.warn("messenger.menus.update: ", target.id, properties);
+            console.warn("messenger.menus.update:", target.id, properties);
         }
         await messenger.menus.update(target.id, properties);
     } catch (e) {
@@ -2381,5 +2379,3 @@ messenger.folders.onCreated.addListener(onFolderCreated);
 messenger.folders.onDeleted.addListener(onFolderDeleted);
 
 window.addEventListener("load", onLoad);
-
-//console.warn("END background.js");
