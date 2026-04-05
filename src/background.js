@@ -131,7 +131,7 @@ async function onInstalled() {
 
 async function onUpdateAvailable(details) {
     try {
-        console.warn("onUpdateAvailable:", details);
+        console.log("onUpdateAvailable:", details);
     } catch (e) {
         console.error(e);
     }
@@ -139,7 +139,7 @@ async function onUpdateAvailable(details) {
 
 async function onSuspend() {
     try {
-        console.warn("background suspending");
+        console.log("background suspending");
     } catch (e) {
         console.error(e);
     }
@@ -582,7 +582,13 @@ async function initMenus(message) {
         await config.session.setBool(config.session.key.menuInitPending, true);
 
         let menus = {};
+        if (verbose) {
+            console.warn("messenger.menus.removeAll");
+        }
         await messenger.menus.removeAll();
+        if (verbose) {
+            console.warn("messenger.menus.refresh");
+        }
         await messenger.menus.refresh();
 
         if (!(await isApproved())) {
@@ -610,7 +616,9 @@ async function initMenus(message) {
         // clear initPending lock
         await config.session.setBool(config.session.key.menuInitPending, false);
 
-        //await messenger.menus.remove("rmfMenuUpdatePending");
+        if (verbose) {
+            console.warn("messenger.menus.refresh");
+        }
         await messenger.menus.refresh();
         if (verbose) {
             console.warn("END initMenus");
@@ -745,6 +753,9 @@ async function createMenu(menus, mid, config) {
         }
         let properties = Object.assign({}, config.properties);
         properties.id = mid;
+        if (verbose) {
+            console.warn("messenger.menus.create: ", properties);
+        }
         let cid = await messenger.menus.create(properties);
         console.assert(cid === mid);
         let created = Object.assign({}, config);
@@ -859,7 +870,7 @@ async function onMenuEvent(menuEvent, mids, info, tab) {
                 console.warn("ignoring menu refresh while init pending");
             } else {
                 if (verbose) {
-                    console.debug("refreshing menus");
+                    console.warn("messenger.menus.refresh");
                 }
                 await messenger.menus.refresh();
             }
@@ -973,6 +984,9 @@ async function setMenuVisibility(menus, detail) {
             }
             if (changed) {
                 refresh = true;
+                if (verbose) {
+                    console.warn("messenger.menus.update: ", config.id, config.properties);
+                }
                 await messenger.menus.update(config.id, config.properties);
             }
         }
@@ -980,6 +994,9 @@ async function setMenuVisibility(menus, detail) {
             if (await config.session.getBool(config.session.key.menuInitPending)) {
                 console.warn("skipping menu refresh during init pending: ", config.id);
             } else {
+                if (verbose) {
+                    console.warn("messenger.menus.refresh");
+                }
                 await messenger.menus.refresh();
             }
         }
@@ -1008,7 +1025,7 @@ async function menuEventDetail(info, tab) {
         if (Array.isArray(info.selectedFolders)) {
             console.assert(!Object.hasOwn(info, "displayedFolder"), "conflicting info folders");
             if (info.selectedFolders.length > 1) {
-                console.warn("ignoring multiple folder selection");
+                console.log("ignoring multiple folder selection");
                 return ret;
             }
             ret.folderName = info.selectedFolders[0].name;
@@ -1026,7 +1043,7 @@ async function menuEventDetail(info, tab) {
         }
 
         if (!Object.hasOwn(info, "contexts")) {
-            console.warn("missing info.contexts");
+            console.log("missing info.contexts");
         } else {
             console.assert(Array.isArray(info.contexts), "info.contexts is not Array");
             if (info.contexts.includes("folder_pane")) {
@@ -1065,7 +1082,7 @@ async function menuEventDetail(info, tab) {
         }
 
         if (!ret.folderName) {
-            console.warn("detail missing folderName");
+            console.log("detail missing folderName");
             if (ret.context === "message_display_action") {
                 for (const folder of await messenger.mailTabs.getSelectedFolders()) {
                     ret.folderName = folder.name;
@@ -1096,7 +1113,11 @@ async function onMenuAddBooksCreated(menus, created) {
             if (bookNames && Array.isArray(bookNames)) {
                 for (const bookName of await getBookNames(accountId)) {
                     let config = newBookMenuConfig(menuConfig[created.subId], accountId, bookName, created);
-                    await createMenu(menus, `${created.id};${accountEmail};${accountId};${bookName}`, config);
+                    let bookMenuId = `${created.id};${accountEmail};${accountId};${bookName}`;
+                    if (verbose) {
+                        console.warn(`createMenu: ${bookMenuId}: `, config);
+                    }
+                    await createMenu(menus, bookMenuId, config);
                 }
             } else {
                 console.warn("no books:", accountId);
@@ -1211,11 +1232,19 @@ async function onMenuSieveTraceShown(target, detail) {
             console.log("onMenuSieveTraceShown:", target.id, { target, detail });
         }
         if (detail.accountId === undefined || detail.accountId === "") {
-            await messenger.menus.update(target.id, { visible: false });
+            const properties = { visible: false };
+            if (verbose) {
+                console.warn("messenger.menus.update: ", target.id, properties);
+            }
+            await messenger.menus.update(target.id, properties);
             return true;
         }
         let enabled = await getSieveTrace(detail.accountId);
-        await messenger.menus.update(target.id, { checked: enabled });
+        const properties = { checked: enabled };
+        if (verbose) {
+            console.log("messenger.menus.update: ", target.id, properties);
+        }
+        await messenger.menus.update(target.id, properties);
         return true;
     } catch (e) {
         console.error(e);
@@ -1445,7 +1474,11 @@ async function onMenuSieveTraceClicked(target, detail) {
         let wasEnabled = await getSieveTrace(detail.accountId);
         let isEnabled = !wasEnabled;
         await setSieveTrace(detail.accountId, isEnabled);
-        await messenger.menus.update(target.id, { checked: isEnabled });
+        const properties = { checked: isEnabled };
+        if (verbose) {
+            console.warn("messenger.menus.update: ", target.id, properties);
+        }
+        await messenger.menus.update(target.id, properties);
     } catch (e) {
         console.error(e);
     }

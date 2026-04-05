@@ -41,6 +41,16 @@ export const menuConfig = {
         excludeFolders: ["Sent"],
     },
 
+    rmfAddSenderMessageDisplayAction: {
+        properties: {
+            title: "Add Sender to Filter Book",
+            contexts: ["message_display_action"],
+        },
+        onCreated: "onMenuAddBooksCreated",
+        subId: "rmfBook",
+        excludeFolders: ["Sent"],
+    },
+
     rmfTargetBook: {
         account: "__account__",
         properties: {
@@ -52,21 +62,11 @@ export const menuConfig = {
         onClicked: "onMenuSelectBookClicked",
         excludeFolders: ["Sent"],
     },
+
     rmfAddSenderMessageList: {
         properties: {
             title: "Add Sender to Filter Book",
             contexts: ["message_list"],
-        },
-        onCreated: "onMenuAddBooksCreated",
-        subId: "rmfBook",
-        hideAfterCreate: true,
-        excludeFolders: ["Sent"],
-    },
-
-    rmfAddSenderMessageDisplayAction: {
-        properties: {
-            title: "Add Sender to Filter Book",
-            contexts: ["message_display_action"],
         },
         onCreated: "onMenuAddBooksCreated",
         subId: "rmfBook",
