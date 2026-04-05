@@ -551,6 +551,97 @@ function getMenuHandler(handlerName) {
     }
 }
 
+async function menuCreate(properties) {
+    try {
+        if (await config.session.getBool(config.session.key.menuInitPending)) {
+            // if menuInitPending, save the intended visibility
+            let visible = true;
+            if (properties.visible === false) {
+                visible = false;
+            }
+            let pendingItems = await config.session.get(config.session.key.menuItemVisibility);
+            if (!pendingItems) {
+                pendingItems = {};
+            }
+            pendingItems[properties.id] = visible;
+            await config.session.set(config.session.key.menuItemVisibility, pendingItems);
+            // always set visible false if menuInitPending
+            properties.visible = false;
+        }
+        if (verbose) {
+            console.warn("messenger.menus.create:", properties);
+        }
+        return await messenger.menus.create(properties, menuCreateCallback);
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function menuCreateCallback() {
+    try {
+        if (messenger.runtime.lastError) {
+            console.error("menuCreate failed with:", messenger.runtime.lastError);
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function menuUpdate(id, properties) {
+    try {
+        if (await config.session.getBool(config.session.key.menuInitPending)) {
+            // if menuInitPending, save the intended visibility
+            if (Object.hasOwn(properties, "visible")) {
+                let pendingItems = await config.session.get(config.session.key.menuItemVisibility);
+                if (verbose) {
+                    console.warn("caching pending menu visiblity:", id, properties.visible);
+                }
+                pendingItems[properties.id] = properties.visible;
+                await config.session.set(config.session.key.menuItemVisibility, pendingItems);
+                // always set visible false if menuInitPending
+                properties.visible = false;
+            }
+        }
+        if (verbose) {
+            console.warn("messenger.menus.update:", id, properties);
+        }
+        return await messenger.menus.update(id, properties);
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function menuRefresh(options = {}) {
+    try {
+        if (await config.session.getBool(config.session.key.menuInitPending)) {
+            if (verbose) {
+                console.warn("ignoring messenger.menus.refresh while menuInitPending");
+            }
+            return;
+        }
+        if (options.updatePendingVisibility) {
+            let pendingItems = await config.session.get(config.session.key.menuItemVisibility);
+            if (!pendingItems) {
+                pendingItems = {};
+            }
+            for (const [id, visible] of Object.entries(pendingItems)) {
+                if (verbose) {
+                    console.warn("(cached) messenger.menus.update:", id, { visible });
+                }
+                await messenger.menus.update(id, { visible });
+            }
+            // clear pending visibility cache
+            await config.session.set(config.session.key.menuItemVisibility, {});
+        }
+        if (verbose) {
+            console.warn("messenger.menus.refresh");
+        }
+        return await messenger.menus.refresh();
+    } catch (e) {
+        console.error(e);
+    }
+}
+
 async function getMenus() {
     try {
         let menus = await config.session.get(config.session.key.menuConfig);
@@ -578,6 +669,9 @@ async function initMenus(message) {
 
         // set initPending lock
         await config.session.setBool(config.session.key.menuInitPending, true);
+
+        // init menuItemVisibility
+        await config.session.set(config.session.key.menuItemVisibility, {});
 
         let menus = {};
         if (verbose) {
@@ -614,10 +708,7 @@ async function initMenus(message) {
         // clear initPending lock
         await config.session.setBool(config.session.key.menuInitPending, false);
 
-        if (verbose) {
-            console.warn("messenger.menus.refresh");
-        }
-        await messenger.menus.refresh();
+        await menuRefresh({ updatePendingVisibility: true });
         if (verbose) {
             console.warn("END initMenus");
         }
@@ -751,10 +842,7 @@ async function createMenu(menus, mid, config) {
         }
         let properties = Object.assign({}, config.properties);
         properties.id = mid;
-	if(verbose) {
-	    console.warn("messenger.menus.create:", mid, properties);
-	}
-        let cid = await messenger.menus.create(properties);
+        const cid = await menuCreate(properties);
         console.assert(cid === mid);
         let created = Object.assign({}, config);
         created.properties = Object.assign({}, config.properties);
@@ -769,14 +857,6 @@ async function createMenu(menus, mid, config) {
             menus[created.pid].subs.push(created);
         }
         menus[mid] = created;
-        if (verbose) {
-            console.debug("createMenu:", mid, {
-                created,
-                config,
-                properties,
-                menus,
-            });
-        }
         if (Object.hasOwn(created, "onCreated")) {
             const handler = getMenuHandler(created.onCreated);
             await handler(menus, created);
@@ -865,12 +945,11 @@ async function onMenuEvent(menuEvent, mids, info, tab) {
         }
         if (refresh) {
             if (await config.session.getBool(config.session.key.menuInitPending)) {
-                console.warn("ignoring menu refresh while init pending");
-            } else {
                 if (verbose) {
-                    console.warn("messenger.menus.refresh");
+                    console.warn("ignoring menu refresh while init pending");
                 }
-                await messenger.menus.refresh();
+            } else {
+                await menuRefresh();
             }
         }
     } catch (e) {
@@ -888,12 +967,6 @@ async function getMenuItemVisibility(config, detail) {
         // these menu ids are always visible if in context
         switch (config.id) {
             case "rmfControlPanel":
-                switch (detail.context) {
-                    case "tools_menu":
-                    case "action":
-                        return true;
-                }
-                return false;
             case "rmfOpenRescans":
                 return true;
         }
@@ -982,10 +1055,7 @@ async function setMenuVisibility(menus, detail) {
             }
             if (changed) {
                 refresh = true;
-                if (verbose) {
-                    console.warn("messenger.menus.update:", config.id, config.properties);
-                }
-                await messenger.menus.update(config.id, config.properties);
+                await menuUpdate(config.id, config.properties);
             }
         }
         if (refresh) {
@@ -1134,6 +1204,9 @@ function newBookMenuConfig(srcConfig, accountId, bookName, created) {
         config.properties.title = config.properties.title.replace(/__book__/, bookName);
         config.properties.contexts = created.properties.contexts;
         config.properties.visible = false;
+        if (created.id === "rmfAddSenderMessageDisplayAction") {
+            config.properties.parentId = created.id;
+        }
         return config;
     } catch (e) {
         console.error(e);
@@ -1228,18 +1301,12 @@ async function onMenuSieveTraceShown(target, detail) {
         }
         if (detail.accountId === undefined || detail.accountId === "") {
             const properties = { visible: false };
-            if (verbose) {
-                console.warn("messenger.menus.update:", target.id, properties);
-            }
-            await messenger.menus.update(target.id, properties);
+            await menuUpdate(target.id, properties);
             return true;
         }
         let enabled = await getSieveTrace(detail.accountId);
         const properties = { checked: enabled };
-        if (verbose) {
-            console.log("messenger.menus.update: ", target.id, properties);
-        }
-        await messenger.menus.update(target.id, properties);
+        await menuUpdate(target.id, properties);
         return true;
     } catch (e) {
         console.error(e);
@@ -1470,10 +1537,7 @@ async function onMenuSieveTraceClicked(target, detail) {
         let isEnabled = !wasEnabled;
         await setSieveTrace(detail.accountId, isEnabled);
         const properties = { checked: isEnabled };
-        if (verbose) {
-            console.warn("messenger.menus.update:", target.id, properties);
-        }
-        await messenger.menus.update(target.id, properties);
+        await menuUpdate(target.id, properties);
     } catch (e) {
         console.error(e);
     }

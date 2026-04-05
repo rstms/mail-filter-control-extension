@@ -287,8 +287,8 @@ class ConfigSession extends ConfigBase {
             "initialized",
             "menuConfig",
             "menuInitPending",
-            "menuPendingTitle",
             "messageDisplayActionAccountId",
+            "menuItemVisibility",
 
             // rescan status
             "activeRescans",

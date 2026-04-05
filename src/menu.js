@@ -8,7 +8,7 @@ export const menuConfig = {
     rmfControlPanel: {
         properties: {
             title: "Mail Filter Control Panel",
-            contexts: ["tools_menu", "action"],
+            contexts: ["tools_menu", "action", "folder_pane"],
         },
         onClicked: "onMenuControlPanelClicked",
     },
@@ -16,29 +16,19 @@ export const menuConfig = {
     rmfOpenRescans: {
         properties: {
             title: "Mail Filter Active Rescans",
-            contexts: ["tools_menu", "action"],
+            contexts: ["tools_menu", "action", "folder_pane"],
         },
         onClicked: "onMenuOpenRescansClicked",
     },
 
-    /*
-    rmfSelectAddSenderSeparator: {
-        properties: {
-            type: "separator",
-            contexts: ["message_display_action"],
-        },
-        excludeFolders: ["Sent"],
-    },
-    */
-
     rmfSelectAddSenderTarget: {
         properties: {
-            title: "Select 'Add Sender' Target",
+            title: "Set default 'Add Sender' Target",
             contexts: ["message_display_action"],
         },
         onCreated: "onMenuAddBooksCreated",
         subId: "rmfTargetBook",
-        excludeFolders: ["Sent"],
+        excludeFolders: ["Sent", "Drafts"],
     },
 
     rmfAddSenderMessageDisplayAction: {
@@ -48,19 +38,7 @@ export const menuConfig = {
         },
         onCreated: "onMenuAddBooksCreated",
         subId: "rmfBook",
-        excludeFolders: ["Sent"],
-    },
-
-    rmfTargetBook: {
-        account: "__account__",
-        properties: {
-            title: "__book__",
-            type: "radio",
-            parentId: "rmfSelectAddSenderTarget",
-        },
-        noInit: true,
-        onClicked: "onMenuSelectBookClicked",
-        excludeFolders: ["Sent"],
+        excludeFolders: ["Sent", "Drafts"],
     },
 
     rmfAddSenderMessageList: {
@@ -71,15 +49,15 @@ export const menuConfig = {
         onCreated: "onMenuAddBooksCreated",
         subId: "rmfBook",
         hideAfterCreate: true,
-        excludeFolders: ["Sent"],
+        excludeFolders: ["Sent", "Drafts"],
     },
 
-    rmfRescanMessagesSeparator: {
+    rmfRescanSeparator: {
         properties: {
             type: "separator",
-            contexts: ["message_list"],
+            contexts: ["folder_pane", "message_list"],
         },
-        excludeFolders: ["Sent"],
+        excludeFolders: ["Sent", "Drafts"],
     },
 
     rmfRescanFolder: {
@@ -107,7 +85,7 @@ export const menuConfig = {
             contexts: ["message_list"],
         },
         onClicked: "onMenuRemoveSenderClicked",
-        excludeFolders: ["Sent"],
+        excludeFolders: ["Sent", "Drafts"],
         requireSelection: true,
     },
 
@@ -149,6 +127,18 @@ export const menuConfig = {
         onShown: "onMenuSieveTraceShown",
     },
 
+    rmfTargetBook: {
+        account: "__account__",
+        properties: {
+            title: "__book__",
+            type: "radio",
+            parentId: "rmfSelectAddSenderTarget",
+        },
+        noInit: true,
+        onClicked: "onMenuSelectBookClicked",
+        excludeFolders: ["Sent", "Drafts"],
+    },
+
     rmfBook: {
         account: "__account-id__",
         book: "__book__",
@@ -157,7 +147,7 @@ export const menuConfig = {
         },
         onClicked: "onMenuAddSenderClicked",
         noInit: true,
-        excludeFolders: ["Sent"],
+        excludeFolders: ["Sent", "Drafts"],
         requireSelection: true,
     },
 };
