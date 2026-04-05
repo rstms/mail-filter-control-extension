@@ -568,7 +568,9 @@ async function enableAccountControls(enabled) {
 
 async function onUnload() {
     try {
-        console.warn("editor unloading");
+        if (verbose) {
+            console.warn("editor page unloading");
+        }
     } catch (e) {
         console.error(e);
     }

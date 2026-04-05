@@ -1,4 +1,4 @@
-console.warn("BEGIN background.js");
+//console.warn("BEGIN background.js");
 
 import { isAccount, getAccounts, getAccount, getSelectedAccount } from "./accounts.js";
 import { accountEmailAddress, differ } from "./common.js";
@@ -829,7 +829,9 @@ async function onMenuShown(info, tab) {
 async function onMenuEvent(menuEvent, mids, info, tab) {
     try {
         let menus = await getMenus();
-        console.log("onMenuEvent:", { menus, menuEvent, mids, info, tab });
+        if (verbose) {
+            console.log("onMenuEvent:", { menus, menuEvent, mids, info, tab });
+        }
         if (menus === undefined) {
             return;
         }
@@ -2133,7 +2135,9 @@ async function onSelectedMessagesChanged(tab, selectedMessages) {
 
 async function onLoad() {
     try {
-        console.warn("onLoad");
+        if (verbose) {
+            console.warn("onLoad");
+        }
         await autoOpen();
     } catch (e) {
         console.error(e);
@@ -2253,11 +2257,76 @@ async function onMessageDisplayActionClicked(tab, info) {
     }
 }
 
+async function onAfterSend(tab, sendInfo) {
+    try {
+        if (verbose) {
+            console.debug("onAfterSend: ", tab, sendInfo);
+        }
+        const addressMap = new Map();
+        let accountId;
+        for (const header of sendInfo.messages) {
+            accountId = header.folder.accountId;
+            for (const headerString of header.recipients) {
+                const parsedMailboxes = await messenger.messengerUtilities.parseMailboxString(headerString);
+                for (const parsedMailbox of parsedMailboxes) {
+                    addressMap.set(parsedMailbox.email, true);
+                }
+            }
+        }
+        const addresses = Array.from(addressMap.keys());
+        if (verbose) {
+            console.debug("sent to: ", addresses);
+        }
+        const filterctl = await getFilterDataController();
+        const booksResult = await filterctl.getBooks(accountId, false);
+        const foundAddressMap = new Map();
+        for (const address of addresses) {
+            let found = false;
+            for (const [bookName, bookAddrs] of Object.entries(booksResult.books.Books)) {
+                if (verbose) {
+                    console.debug("checking: ", bookName, bookAddrs);
+                }
+                if (found) {
+                    break;
+                }
+                for (const bookAddress of bookAddrs) {
+                    if (bookAddress === address) {
+                        foundAddressMap.set(address, true);
+                        found = true;
+                        break;
+                    }
+                }
+            }
+        }
+        const foundAddresses = Array.from(foundAddressMap.keys());
+        for (const address of addresses) {
+            const addressFound = foundAddresses.includes(address);
+            if (!addressFound) {
+                if (verbose) {
+                    console.debug("new sent address: ", address);
+                }
+                const prompt = `Add "${address}" to whitelist?`;
+                if (await messenger.servicesPrompt.confirm("New mail recipient", prompt)) {
+                    await filterctl.addAddressToFilterBook(accountId, address, "whitelist");
+                } else {
+                    if (verbose) {
+                        console.debug("user declined add to whitelist");
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 //
 //  event wiring
 //
 ///////////////////////////////////////////////////////////////////////////////
+
+messenger.compose.onAfterSend.addListener(onAfterSend);
 
 messenger.runtime.onInstalled.addListener(onInstalled);
 messenger.runtime.onStartup.addListener(onStartup);
@@ -2283,4 +2352,4 @@ messenger.folders.onDeleted.addListener(onFolderDeleted);
 
 window.addEventListener("load", onLoad);
 
-console.warn("END background.js");
+//console.warn("END background.js");

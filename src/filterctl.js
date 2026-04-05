@@ -1725,5 +1725,3 @@ export async function datasetFactory(type, renderable = undefined, accountId = u
 
 export const booksFactory = (renderable = undefined, accountId = undefined) => datasetFactory(BOOKS, renderable, accountId);
 export const classesFactory = (renderable = undefined, accountId = undefined) => datasetFactory(CLASSES, renderable, accountId);
-
-console.log("filterctl.js executing");

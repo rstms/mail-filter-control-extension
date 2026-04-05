@@ -866,13 +866,17 @@ async function receiver(folder, messageList) {
 }
 
 async function onLoad() {
-    console.warn("email loading");
+    if (verbose) {
+        console.warn("email loading");
+    }
     await email.startup();
     await messenger.messages.onNewMailReceived.addListener(receiver);
 }
 
 async function onBeforeUnload() {
-    console.warn("email unloading");
+    if (verbose) {
+        console.warn("email unloading");
+    }
     await messenger.messages.onNewMailReceived.removeListener(receiver);
     await email.shutdown();
 }
