@@ -753,9 +753,6 @@ async function createMenu(menus, mid, config) {
         }
         let properties = Object.assign({}, config.properties);
         properties.id = mid;
-        if (verbose) {
-            console.warn("messenger.menus.create: ", properties);
-        }
         let cid = await messenger.menus.create(properties);
         console.assert(cid === mid);
         let created = Object.assign({}, config);
