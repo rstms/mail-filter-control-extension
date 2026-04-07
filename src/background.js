@@ -689,7 +689,7 @@ async function initMenus(message) {
             return;
         }
 
-        let display = await displayProcess(`Configuring Mail Filter Menus...`, 0, 1, { autoRemove: true });
+        let display = await displayProcess(`Configuring Mail Filter Menus...`, 0, 1, { autoRemove: 300 });
 
         for (let [mid, config] of Object.entries(menuConfig)) {
             if (config.noInit !== true) {
@@ -709,9 +709,11 @@ async function initMenus(message) {
         await config.session.setBool(config.session.key.menuInitPending, false);
 
         await menuRefresh({ updatePendingVisibility: true });
+
         if (verbose) {
             console.warn("END initMenus");
         }
+
         await display.complete("Mail Filter Menus Configured");
 
         return menus;
