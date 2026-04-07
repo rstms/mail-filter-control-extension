@@ -1482,7 +1482,7 @@ async function filterBookAction(action, addressType, accountId, filterBook, mess
         let confirmed = true;
         if (total > 1) {
             confirmed = await messenger.servicesPrompt.confirm(
-                "Confirm ${op.action} ${total} ${op.description} ${op.direction} ${filterBook}",
+                `Confirm ${op.action} ${total} ${op.description} ${op.direction} ${filterBook}`,
                 message,
             );
         }
@@ -1494,7 +1494,7 @@ async function filterBookAction(action, addressType, accountId, filterBook, mess
             );
             let count = 0;
             for (const address of addresses) {
-                const status = `${title} - ${op.actioning} ${addressType} ${op.description} ${op.direction} ${filterBook}`;
+                const status = `${title} - ${op.actioning} ${addressType} ${address} ${op.direction} ${filterBook}`;
                 await display.update(status, ++count);
                 if (verbose) {
                     console.debug(status);
