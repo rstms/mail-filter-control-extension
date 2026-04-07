@@ -667,8 +667,6 @@ async function initMenus(message) {
             console.warn("BEGIN initMenus:", message);
         }
 
-        let display = await displayProcess(`Configuring Mail Filter Menus...`, 0, 10, { ticker: 1 });
-
         // set initPending lock
         await config.session.setBool(config.session.key.menuInitPending, true);
 
@@ -690,6 +688,8 @@ async function initMenus(message) {
             await config.session.setBool(config.session.key.menuInitPending, false);
             return;
         }
+
+        let display = await displayProcess(`Configuring Mail Filter Menus...`, 0, 1, { autoRemove: true });
 
         for (let [mid, config] of Object.entries(menuConfig)) {
             if (config.noInit !== true) {
