@@ -667,6 +667,8 @@ async function initMenus(message) {
             console.warn("BEGIN initMenus:", message);
         }
 
+        let display = await displayProcess(`Configuring Mail Filter Menus...`, 0, 10, { ticker: 1 });
+
         // set initPending lock
         await config.session.setBool(config.session.key.menuInitPending, true);
 
@@ -689,8 +691,6 @@ async function initMenus(message) {
             return;
         }
 
-        //await setMenuInitPending(`Menu update pending (${message})...`);
-
         for (let [mid, config] of Object.entries(menuConfig)) {
             if (config.noInit !== true) {
                 await createMenu(menus, mid, config);
@@ -712,6 +712,7 @@ async function initMenus(message) {
         if (verbose) {
             console.warn("END initMenus");
         }
+        await display.complete("Mail Filter Menus Configured");
 
         return menus;
     } catch (e) {
@@ -1265,7 +1266,7 @@ async function setSieveTrace(accountId, enabled) {
                 console.debug("setSieveTrace completed:", accountId, enabled);
             }
         } catch (e) {
-            await display.fail(`${action} Sieve Trace for ${email} failed: ${e}`);
+            await display.fail(`${action} Sieve Trace for ${email} failed: ${e}; please contact support.`);
             console.error("setSieveTrace failed:", accountId, enabled, e);
         }
     } catch (e) {
