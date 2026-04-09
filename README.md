@@ -3,9 +3,11 @@
 A thunderbird mail extension providing interface elements and a Control Panel page for configuring mail filtering features of the Reliance Systems mailserver
 
 ## Description
+
 This software is a Thunderbird Add-On which adds custom context menus and a control panel page.  These menus and controls are used configure mail filtering and routing features.  The extension is compatible with Thunderbird and Betterbird.  The extension software is made available as a downloadable XPI archive file.  The extension is designed to interact with the “enhanced mail filter” features present in Reliance Systems mail servers.
 
 ## Download the XPI file
+
 1. In your web browser, open the [project release page](https://github.com/rstms/mail-filter-control-extension/releases)
 2. Right click on the latest XPI file and choose “Save link as...”
 3. Select a location, (Downloads is the default) and download the file
@@ -25,6 +27,7 @@ This software is a Thunderbird Add-On which adds custom context menus and a cont
 11. Click “Reset to Apply Changes” - the extension is now installed and enabled.
        
 ## Remove the extension from Thunderbird
+
 1. Open Thunderbird
 2. Click the “three bars” menu in the upper right corner
 3. Click on “Add-on and Themes”.   This will open the Add-ons Manager window.   
@@ -33,10 +36,8 @@ This software is a Thunderbird Add-On which adds custom context menus and a cont
 6. Close Thunderbird to complete the removal.
 
 ### References:
- - https://www.thunderbird.net/en-US/desktop/
- - https://www.betterbird.eu/
- - https://www.opensmtpd.org
- - https://rspamd.com
- - https://github.com/rstms/filter-rspamd-class
- - https://github.com/rstms/filterctl
- - https://github.com/rstms/filterctld
+
+ - [Thunderbird](https://www.thunderbird.net/en-US/desktop/)
+ - [Betterbird](https://www.betterbird.eu/)
+ - [OpenSMTP](https://www.opensmtpd.org)
+ - [RSPAMD](https://rspamd.com)
