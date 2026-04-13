@@ -790,9 +790,18 @@ export class BooksTab {
                         if (count === 1) {
                             suffix = "";
                         }
-                        let message = `Do you want to delete the folder '${path}' containing ${count} message${suffix}?`;
-                        let confirmed = await messenger.servicesPrompt.confirm("Confirm FilterBook Folder Delete", message);
-                        if (confirmed) {
+                        if (
+                            await messenger.servicesPrompt.confirm(
+                                "Confirm FilterBook Folder Delete",
+                                `Do you want to delete the folder '${path}' containing ${count} message${suffix}?`,
+                            )
+                        ) {
+                            // check if Trash contains folder we intend to delete, and delete it if present
+                            const trashPath = `/Trash/${bookName}`;
+                            if (await isFolder(this.account.id, trashPath)) {
+                                const trashFolder = await getFolderByPath(this.account.id, trashPath);
+                                await messenger.folders.delete(trashFolder.id);
+                            }
                             await messenger.folders.delete(folder.id);
                             console.log("deleted folder:", folder);
                         }

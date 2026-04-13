@@ -401,7 +401,9 @@ async function handleMessage(message, sender) {
 
 async function onLoad() {
     try {
-        console.warn("rescan loading");
+        if (verbose) {
+            console.warn("rescan loading");
+        }
         document.title = await config.local.get(config.local.key.rescanTitle);
     } catch (e) {
         console.error(e);
@@ -410,7 +412,9 @@ async function onLoad() {
 
 async function onBeforeUnload() {
     try {
-        console.warn("rescan unloading");
+        if (verbose) {
+            console.warn("rescan unloading");
+        }
         resetRefreshTimer();
     } catch (e) {
         console.error(e);

@@ -157,7 +157,9 @@ export class OptionsTab {
             await this.clearCache();
             this.controls.domainsStack.innerHTML = "";
             for (const [controlName, control] of Object.entries(this.controls)) {
-                console.log("disabling control:", controlName);
+                if (verbose) {
+                    console.debug("disabling control:", controlName);
+                }
                 control.disabled = true;
             }
             const label = document.createElement("label");
