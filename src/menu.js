@@ -79,6 +79,25 @@ export const menuConfig = {
         requireSelection: true,
     },
 
+    rmfRescanFilterBooksFolder: {
+        properties: {
+            title: "Reapply Filter Books to All Messages in Folder",
+            contexts: ["folder_pane"],
+        },
+        onClicked: "onMenuRescanFilterBooksFolderClicked",
+        excludeFolders: ["Sent", "Drafts"],
+    },
+
+    rmfRescanFilterBooksMessages: {
+        properties: {
+            title: "Reapply Filter Books to Selected Messages",
+            contexts: ["message_list"],
+        },
+        onClicked: "onMenuRescanFilterBooksMessagesClicked",
+        excludeFolders: ["Sent", "Drafts"],
+        requireSelection: true,
+    },
+
     rmfRemoveSender: {
         properties: {
             title: "Remove sender from all Filter Books",

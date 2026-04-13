@@ -527,6 +527,12 @@ function getMenuHandler(handlerName) {
             case "onMenuRescanFolderClicked":
                 return onMenuRescanFolderClicked;
 
+            case "onMenuRescanFilterBooksMessagesClicked":
+                return onMenuRescanFilterBooksMessagesClicked;
+
+            case "onMenuRescanFilterBooksFolderClicked":
+                return onMenuRescanFilterBooksFolderClicked;
+
             case "onMenuSieveTraceClicked":
                 return onMenuSieveTraceClicked;
 
@@ -702,8 +708,12 @@ async function initMenus(message) {
             console.debug("saved menu config:", menus);
         }
 
-        const info = await querySelectedMessages();
-        await updateMessageDisplayAction(info.accountId, info.folderName);
+        const selected = await querySelectedMessages({ allowNone: true });
+        if (selected && selected.account && selected.folder) {
+            await updateMessageDisplayAction(selected.account.id, selected.folder.name);
+        } else {
+            await updateMessageDisplayAction();
+        }
 
         // clear initPending lock
         await config.session.setBool(config.session.key.menuInitPending, false);
@@ -727,8 +737,8 @@ async function anyMessagesSelected() {
     try {
         const tabs = await messenger.tabs.query({ type: "mail" });
         for (const tab of tabs) {
-            const selected = await messenger.mailTabs.getSelectedMessages(tab.id);
-            for (const message of selected.messages) {
+            let messageList = await messenger.mailTabs.getSelectedMessages(tab.id);
+            for (const message of messageList.messages) {
                 return true;
             }
         }
@@ -741,58 +751,80 @@ async function anyMessagesSelected() {
 // return accountId, folderName, folderId, folderPath and optional array of currently selected messages
 async function querySelectedMessages(options = {}) {
     try {
-        let info = { count: 0 };
+        let selected = { count: 0 };
         if (options.messages) {
-            info.messages = new Array();
+            selected.messages = new Array();
+        }
+        if (options.messageIds) {
+            selected.messageIds = new Array();
         }
         const tabs = await messenger.tabs.query({ type: "mail" });
         for (const tab of tabs) {
-            const selected = await messenger.mailTabs.getSelectedMessages(tab.id);
-            for (const message of selected.messages) {
-                if (await isAccount(message.folder.accountId)) {
-                    if (info.accountId) {
-                        if (info.accountId !== message.folder.accountId) {
-                            console.error("multiple accounts in selected messages");
-                            return {};
+            let page = await messenger.mailTabs.getSelectedMessages(tab.id);
+            let messages = page.messages;
+            while (messages) {
+                for (const message of messages) {
+                    const account = await getAccount(message.folder.accountId);
+                    if (account) {
+                        if (selected.account) {
+                            if (selected.account.id !== message.folder.accountId) {
+                                throw new Error("multiple accounts in selected messages");
+                            }
+                        } else {
+                            selected.account = account;
+                        }
+                    }
+                    if (selected.folder) {
+                        if (selected.folder.id !== message.folder.id) {
+                            throw new Error("multiple folder ids in selected messages");
                         }
                     } else {
-                        info.accountId = message.folder.accountId;
+                        selected.folder = message.folder;
+                        if (options.excludeFolders) {
+                            if (options.excludeFolders.includes(selected.folder.name)) {
+                                throw new Error(`disabled in ${selected.folder.name} folder`);
+                            }
+                        }
                     }
+                    if (options.messages) {
+                        selected.messages.push(message);
+                    }
+                    if (options.MessageIds) {
+                        selected.messageIds.push(message.id);
+                    }
+                    selected.count++;
                 }
-                if (info.folderName) {
-                    if (info.folderName !== message.folder.name) {
-                        console.error("multiple folder names in selected messages");
-                        return {};
-                    }
+                if (page.id) {
+                    page = messenger.messages.continueList(page.id);
+                    messages = page.messages;
                 } else {
-                    info.folderName = message.folder.name;
+                    messages = null;
                 }
-                if (info.folderId) {
-                    if (info.folderId !== message.folder.id) {
-                        console.error("multiple folder ids in selected messages");
-                        return {};
-                    }
-                } else {
-                    info.folderId = message.folder.id;
-                }
-
-                if (info.folderPath) {
-                    if (info.folderPath !== message.folder.path) {
-                        console.error("multiple folder paths in selected messages");
-                        return {};
-                    }
-                } else {
-                    info.folderPath = message.folder.path;
-                }
-                if (options.messages) {
-                    info.messages.push(message);
-                }
-                info.count++;
             }
         }
-        return info;
+        if (options.messages && selected.messages.length < 1) {
+            throw new Error("no messages selected");
+        }
+        if (options.messageIds && selected.messageIds.length < 1) {
+            throw new Error("no messages selected");
+        }
+        if (options.requireSingle) {
+            if (selected.count !== 1) {
+                throw new Error("multiple messages selected");
+            }
+        }
+        if (!options.allowNone) {
+            if (!selected.account) {
+                throw new Error("missing selected account");
+            }
+            if (!selected.folder) {
+                throw new Error("missing selected folder");
+            }
+        }
+        return selected;
     } catch (e) {
         console.error(e);
+        return null;
     }
 }
 
@@ -1013,6 +1045,8 @@ async function getMenuItemVisibility(config, detail) {
         switch (config.id) {
             case "rmfRescanMessages":
             case "rmfRescanFolder":
+            case "rmfRescanFilterBooksMessages":
+            case "rmfRescanFilterBooksFolder":
             case "rmfRescanSeparator":
                 return await getRescanVisibility(config.id, detail);
         }
@@ -1088,17 +1122,18 @@ async function menuEventDetail(info, tab) {
             tab,
             setVisibility: false,
             hasAccount: false,
+            folder: undefined,
             folderName: undefined,
         };
 
         const accounts = await getAccounts();
-
         if (Array.isArray(info.selectedFolders)) {
             console.assert(!Object.hasOwn(info, "displayedFolder"), "conflicting info folders");
-            if (info.selectedFolders.length > 1) {
-                console.log("ignoring multiple folder selection");
+            if (info.selectedFolders.length !== 1) {
+                console.warn("ignoring multiple folder selection");
                 return ret;
             }
+            ret.folder = info.selectedFolders[0];
             ret.folderName = info.selectedFolders[0].name;
             if (Object.hasOwn(accounts, info.selectedFolders[0].accountId)) {
                 ret.hasAccount = true;
@@ -1134,11 +1169,14 @@ async function menuEventDetail(info, tab) {
                 ret.hasAccount = true;
                 ret.accountId = await config.session.get(config.session.key.messageDisplayActionAccountId);
                 if (!ret.accountId) {
-                    const info = await querySelectedMessages();
-                    if (await isAccount(info.accountId)) {
-                        ret.accountId = info.accountId;
+                    const selected = await querySelectedMessages();
+                    if (!selected) {
+                        throw new Error("querySelectedMessages failed");
                     }
-                    ret.folderName = info.folderName;
+                    if (await isAccount(selected.account.id)) {
+                        ret.accountId = selected.account.id;
+                    }
+                    ret.folderName = selected.folderName;
                 }
                 ret.context = "message_display_action";
                 ret.setVisibility = true;
@@ -1360,9 +1398,13 @@ async function onMenuAddSenderClicked(config, detail) {
         }
         const filterBook = config.book;
         const selected = await querySelectedMessages({ messages: true });
-        if (await validateOnClicked(config, detail, selected.accountId, selected.folderName, selected.messages)) {
-            return await filterBookAction(ADD, SENDER, selected.accountId, filterBook, selected.messages, filterBook);
+        if (!selected) {
+            throw new Error("querySelectedMessages failed");
         }
+        if (!(await validateOnClicked(config, detail, selected.account.id, selected.folder.name, selected.messages))) {
+            throw new Error("validateOnClicked failed");
+        }
+        return await filterBookAction(ADD, SENDER, selected.account.id, filterBook, selected.messages, filterBook);
     } catch (e) {
         console.error(e);
     }
@@ -1381,9 +1423,10 @@ async function addSenderToFilterBook(accountId, filterBook) {
         let config = {
             excludeFolders: ["Sent", "Drafts"],
         };
-        if (await validateOnClicked(config, {}, accountId, selected.folderName, selected.messages)) {
-            await filterBookAction(ADD, SENDER, accountId, filterBook, selected.messages, filterBook);
+        if (!(await validateOnClicked(config, {}, selected.account.id, selected.folder.name, selected.messages))) {
+            throw new Error("validateOnClicked failed");
         }
+        await filterBookAction(ADD, SENDER, selected.account.id, filterBook, selected.messages, filterBook);
     } catch (e) {
         console.error(e);
     }
@@ -1395,9 +1438,13 @@ async function onMenuRemoveSenderClicked(config, detail) {
             console.log("onMenuRemoveSenderClicked:", config.id, { config, detail });
         }
         const selected = await querySelectedMessages({ messages: true });
-        if (await validateOnClicked(config, detail, selected.accountId, selected.folderName, selected.messages)) {
-            return await filterBookAction(REMOVE, SENDER, selected.accountId, "all filterbooks", selected.messages, "inbox");
+        if (!selected) {
+            throw new Error("querySelectedMessages failed");
         }
+        if (!(await validateOnClicked(config, detail, selected.account.id, selected.folder.name, selected.messages))) {
+            throw new Error("validateOnClicked failed");
+        }
+        return await filterBookAction(REMOVE, SENDER, selected.account.id, "all filterbooks", selected.messages, "inbox");
     } catch (e) {
         console.error(e);
     }
@@ -1409,9 +1456,13 @@ async function onMenuAddRecipientClicked(config, detail) {
             console.log("onMenuAddRecipientClicked:", config.id, { config, detail });
         }
         const selected = await querySelectedMessages({ messages: true });
-        if (await validateOnClicked(config, detail, selected.accountId, selected.folderName, selected.messages)) {
-            return await filterBookAction(ADD, RECIPIENT, selected.accountId, "whitelist", selected.messages, false);
+        if (!selected) {
+            throw new Error("querySelectedMessages failed");
         }
+        if (!(await validateOnClicked(config, detail, selected.account.id, selected.folder.name, selected.messages))) {
+            throw new Error("validateOnClicked failed");
+        }
+        return await filterBookAction(ADD, RECIPIENT, selected.account.id, "whitelist", selected.messages, false);
     } catch (e) {
         console.error(e);
     }
@@ -1423,9 +1474,13 @@ async function onMenuRemoveRecipientClicked(config, detail) {
             console.log("onMenuRemoveRecipientClicked:", config.id, { config, detail });
         }
         const selected = await querySelectedMessages({ messages: true });
-        if (await validateOnClicked(config, detail, selected.accountId, selected.folderName, selected.messages)) {
-            return await filterBookAction(REMOVE, RECIPIENT, selected.accountId, "whitelist", selected.messages, false);
+        if (!selected) {
+            throw new Error("querySelectedMessages failed");
         }
+        if (!(await validateOnClicked(config, detail, selected.account.id, selected.folder.name, selected.messages))) {
+            throw new Error("validateOnClicked failed");
+        }
+        return await filterBookAction(REMOVE, RECIPIENT, selected.account.id, "whitelist", selected.messages, false);
     } catch (e) {
         console.error(e);
     }
@@ -1558,16 +1613,20 @@ async function getRescanVisibility(menuId, detail) {
             if (Object.hasOwn(detail, "info") && Object.hasOwn(detail.info, "displayedFolder")) {
                 folderPath = detail.info.displayedFolder.path;
                 folderName = detail.info.displayedFolder.name;
-                if (menuId === "rmfRescanFolder") {
-                    return false;
+                switch (menuId) {
+                    case "rmfRescanFolder":
+                    case "rmfRescanFilterBooksFolder":
+                        return false;
                 }
             }
             if (Object.hasOwn(detail, "info") && Object.hasOwn(detail.info, "selectedFolders")) {
                 if (detail.info.selectedFolders.length === 1) {
                     folderPath = detail.info.selectedFolders[0].path;
                     folderName = detail.info.selectedFolders[0].name;
-                    if (menuId === "rmfRescanMessages") {
-                        return false;
+                    switch (menuId) {
+                        case "rmfRescanMessages":
+                        case "rmfRescanFilterBooksMessages":
+                            return false;
                     }
                 }
             }
@@ -1579,7 +1638,7 @@ async function getRescanVisibility(menuId, detail) {
             if (folderName !== "Root" && parts.length > 1) {
                 folderName = parts[1];
             }
-            const noRescanFolders = ["Root", "Junk", "Sent", "Drafts", "Trash"];
+            const noRescanFolders = ["Root", "Sent", "Drafts", "Trash"];
             if (!noRescanFolders.includes(folderName)) {
                 return true;
             }
@@ -1610,12 +1669,12 @@ async function onMenuSelectBookClicked(config, detail) {
                 detail,
             });
         }
-        const info = await querySelectedMessages();
-        if (!info) {
-            throw new Error("selected message query failed");
+        const selected = await querySelectedMessages();
+        if (!selected) {
+            throw new Error("querySelectedMessages failed");
         }
         await setAddSenderTarget(config.accountId, config.book);
-        await updateMessageDisplayAction(config.accountId, info.folderName);
+        await updateMessageDisplayAction(config.accountId, selected.folder.name);
     } catch (e) {
         console.error(e);
     }
@@ -1645,19 +1704,20 @@ async function onMenuOpenRescansClicked(target, detail) {
 
 async function onMenuRescanFolderClicked(target, detail) {
     try {
-        // FIXME: check onClick parameters
         if (verbose) {
             console.log("onMenuRescanFolderClicked:", target.id, {
                 target,
                 detail,
             });
         }
-        for (const folder of detail.info.selectedFolders) {
-            let account = await getAccount(folder.accountId);
-            let path = folder.path;
-            if (await requestRescan(account, path, [], `Rescanning all messages in folder '${folder.path}'...`)) {
-                await focusRescanWindow();
-            }
+        if (detail.info.selectedFolders.length !== 1) {
+            throw new Error(`expected single selected folder; got ${detail.info.selectedFolders.length}`);
+        }
+        const folder = detail.info.selectedFolders[0];
+        let account = await getAccount(folder.accountId);
+        let path = folder.path;
+        if (await requestRescan(account, path, [], `Rescanning all messages in folder '${folder.path}'...`)) {
+            await focusRescanWindow();
         }
     } catch (e) {
         console.error(e);
@@ -1721,6 +1781,104 @@ async function requestRescan(account, path, messageIds) {
         await findContentTab("rescan", true);
         await updateActiveRescans(response);
         return true;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function onMenuRescanFilterBooksFolderClicked(target, detail) {
+    try {
+        if (verbose) {
+            console.log("onMenuRescanFilterBooksFolderClicked:", target.id, {
+                target,
+                detail,
+            });
+        }
+        if (detail.info.selectedFolders.length !== 1) {
+            throw new Error(`expected single selected folder; got ${detail.info.selectedFolders.length}`);
+        }
+        const folder = detail.info.selectedFolders[0];
+        const messageMap = await mapMessageFolderSenderIds(folder);
+        if (!messageMap) {
+            throw new Error("no messages selected");
+        }
+        const account = await getAccount(folder.accountId);
+        if (!account) {
+            throw new Error("invalid account");
+        }
+        await rescanFilterBooks(account.id, messageMap, `Reapplying filter books rules to all messages in folder '${folder.path}'...`);
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function onMenuRescanFilterBooksMessagesClicked(target, detail) {
+    try {
+        if (verbose) {
+            console.log("onMenuRescanFilterBooksMessagesClicked:", target.id, {
+                target,
+                detail,
+            });
+        }
+        const selected = await querySelectedMessages({ messages: true });
+        if (!selected) {
+            throw new Error("querySelectedMessages failed");
+        }
+        if (!(await validateOnClicked(target, detail, selected.account.id, selected.folder.name, selected.messages))) {
+            throw new Error("validateOnClicked failed");
+        }
+        const messageMap = await mapMessageListSenderIds(selected.messages);
+        if (!messageMap) {
+            throw new Error("mapMessageSelectionSenderIds failed");
+        }
+        await rescanFilterBooks(selected.account.id, messageMap, "Reapplying filter books rules to selected messages...");
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+export async function getTargetBook(address, books) {
+    try {
+        if (verbose) {
+            console.debug("getTargetBook:", address, books);
+        }
+        for (const [book, addrs] of Object.entries(books)) {
+            if (addrs.includes(address)) {
+                return book;
+            }
+        }
+        return "inbox";
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+export async function rescanFilterBooks(accountId, messageMap, title) {
+    try {
+        if (verbose) {
+            console.debug("rescanFilterBooks:", accountId, messageMap, title);
+        }
+        const filterctl = await getFilterDataController();
+        const bookData = await filterctl.getBooks(accountId);
+        const books = bookData.books.Books;
+        const targets = new Map();
+        for (const [sender, messageIds] of messageMap.entries()) {
+            if (verbose) {
+                console.log("rescanFilterBooks loop: ", sender, messageIds);
+            }
+            const book = await getTargetBook(sender, books);
+            if (!targets.has(book)) {
+                targets.set(book, new Array());
+            }
+            targets.set(book, targets.get(book).concat(messageIds));
+        }
+        for (const [book, messageIds] of targets.entries()) {
+            if (book === "inbox") {
+                await moveMessagesToInbox(title, accountId, messageIds);
+            } else {
+                await moveMessagesToFilterBook(title, accountId, book, messageIds);
+            }
+        }
     } catch (e) {
         console.error(e);
     }
@@ -1826,6 +1984,23 @@ async function mapParsedAddresses(addressMap, addressList) {
     }
 }
 
+// return first email address in addressList
+async function parseEmailAddress(addressList) {
+    try {
+        for (const address of addressList) {
+            const parsedAddrs = await messenger.messengerUtilities.parseMailboxString(address);
+            for (const parsed of parsedAddrs) {
+                if (parsed.email) {
+                    return parsed.email;
+                }
+            }
+        }
+        return null;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
 // scan a messageList and return a list of unique sender or recipient addresses
 async function scanMessageAddresses(addressType, messages) {
     try {
@@ -1842,7 +2017,8 @@ async function scanMessageAddresses(addressType, messages) {
                     addrs = await mapParsedAddresses(addrs, [message.author]);
                     break;
                 default:
-                    throw new Error(`unexpected addressType: ${addressType}`);
+                    console.error(`unexpected addressType: ${addressType}`);
+                    return [];
             }
         }
         return Array.from(addrs.keys());
@@ -1886,6 +2062,8 @@ async function scanMessageFolderMatchingAddresses(accountId, folderId, addressTy
             case "sender":
                 params.author = address;
                 break;
+            case "all":
+                break;
             default:
                 throw new Error(`unexpected addressType: ${addressType}`);
         }
@@ -1899,6 +2077,60 @@ async function scanMessageFolderMatchingAddresses(accountId, folderId, addressTy
             pageId = page.id;
         }
         return Array.from(messageIds.keys());
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+// scan all messages in folder returning map of sender addresses to list of message IDs
+async function mapMessageFolderSenderIds(folder) {
+    try {
+        if (verbose) {
+            console.log("scanMessageFolderSenderIds:", folder);
+        }
+        let ret = new Map();
+        let params = {
+            accountId: folder.accountId,
+            folderId: folder.id,
+            returnMessageListId: true,
+        };
+        let pageId = await messenger.messages.query(params);
+        while (pageId) {
+            let page = await messenger.messages.continueList(pageId);
+            for (const message of page.messages) {
+                const sender = await parseEmailAddress([message.author]);
+                if (sender) {
+                    if (!ret.has(sender)) {
+                        ret.set(sender, new Array());
+                    }
+                    ret.get(sender).push(message.id);
+                }
+            }
+            pageId = page.id;
+        }
+        return ret;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+// scan list of messages returning map of sender addresses to list of message IDs
+async function mapMessageListSenderIds(messages) {
+    try {
+        if (verbose) {
+            console.log("scanMessageListSenderIds:", messages);
+        }
+        let ret = new Map();
+        for (const message of messages) {
+            const sender = await parseEmailAddress([message.author]);
+            if (sender) {
+                if (!ret.has(sender)) {
+                    ret.set(sender, new Array());
+                }
+                ret.get(sender).push(message.id);
+            }
+        }
+        return ret;
     } catch (e) {
         console.error(e);
     }
@@ -2206,7 +2438,9 @@ async function onDisplayedFolderChanged(tab, displayedFolder) {
             let account = await getAccount(accountId);
             email = accountEmailAddress(account);
         }
-        console.debug("displayedFolderChanged", { accountId, email, folder });
+        if (verbose) {
+            console.debug("displayedFolderChanged", { accountId, email, folder });
+        }
         await updateMessageDisplayAction(accountId, folder);
     } catch (e) {
         console.error(e);
@@ -2319,30 +2553,20 @@ async function onMessageDisplayActionClicked(tab, info) {
             console.warn("outside mail tab");
             return;
         }
-
-        const selectedMessages = await querySelectedMessages({ messages: true });
+        const selectedMessages = await querySelectedMessages({
+            messages: true,
+            excludeFolders: ["Sent", "Drafts"],
+            requireSingle: true,
+        });
         if (!selectedMessages) {
-            throw new Error("selected message query failed");
-        }
-        switch (selectedMessages.count) {
-            case 0:
-                return;
-            case 1:
-                break;
-            default:
-                throw new Error("multiple messages selected");
-        }
-        switch (selectedMessages.folderName) {
-            case "Sent":
-            case "Drafts":
-                throw new Error(`disabled in ${selectedMessages.folderName} folder`);
+            throw new Error("querySelectedMessages failed");
         }
         const accountId = await config.session.get(config.session.key.messageDisplayActionAccountId);
         if (!(await isAccount(accountId))) {
             throw new Error(`invalid account ${accountId}`);
         }
-        if (accountId !== selectedMessages.accountId) {
-            throw new Error(`account mismatch: expected ${accountId}, got ${selectedMessages.accountId}`);
+        if (accountId !== selectedMessages.account.id) {
+            throw new Error(`account mismatch: expected ${accountId}, got ${selectedMessages.account.id}`);
         }
 
         const filterBook = await getAddSenderTarget(accountId);
