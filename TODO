@@ -1,1 +1,22 @@
-react to creation of subfolder under FilterBook by creating filterbook
+test: react to creation of subfolder under FilterBook by creating filterbook
+test: remove sender address from all other filterbooks when adding to a filterbook
+test: rescan applies user sieve-filters
+bugfix: when sending mail, suppress add-to-whitelist dialog when send address is already present
+test: mailfilter control panel updates filterbook list in UI when filterbook is deleted
+scan 2025-12 notes for multiple mailfilter TODOs
+bugfix: delete whitelist folder failure when folder exists in trash
+bugfix: detect FilterBooks/Whitelisted folder; move messages to INBOX/Whitelisted & delete Filterbooks/Whitelisted
+scan 2026-05-09 support email
+enhancement: detect INBOX/Whitelisted present on imap server but not subscribed
+add folder fails when folder present on server but not subscribed
+enhancement: add/delete folder in extension shows error message instead of silent failure
+subproject: auto-learning-refactor (per 2026-05-09 support notes)
+subproject: filterbooks-classifier (per 2026-05-09 support notes)
+bugfix: help display UI
+enhancement: per-account whitelist VS cross-accounts whitelist
+test: rescan folder when address added to whitelist - move to INBOX/Whitelisted
+test: account with '.' in username 
+add-sender-domain-to-filterbook context menu item
+remove-sender-domain-from-filterbook context menu item
+add-sender-domain-to-whitelist context menu item
+remove-sender-domain-from-whitelist context menu item - when in INBOX/Whitelisted folder
