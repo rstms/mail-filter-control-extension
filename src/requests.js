@@ -9,6 +9,9 @@ export class Requests {
     }
 
     async request(accountId, path, options = {}, id = null) {
+        let url = undefined;
+        let response = undefined;
+        let result = undefined;
         try {
             if (verbose) {
                 let origin = await messenger.runtime.getURL("/");
@@ -23,32 +26,46 @@ export class Requests {
             const account = await messenger.accountDetail.get(accountId);
             options.headers["X-Api-Key"] = btoa(`${account.email}:${account.password}`);
             options.headers["X-Request-Id"] = id;
-            if (options.method === "POST") {
+            const method = options.method;
+            if (method === "POST") {
                 options.headers["Content-Type"] = "application/json";
             }
             options.credentials = "include";
             options.cache = "no-cache";
             options.mode = "cors";
 
-            const url = `https://webmail.${account.domain}:4443/mailfilter${path}`;
+            url = `https://webmail.${account.domain}:4443/mailfilter${path}`;
             if (verbose) {
-                console.debug("<-- request:", url, options);
+                console.debug("<-- request:", method, url, options);
             }
-            const response = await fetch(url, options);
+            response = await fetch(url, options);
             if (verbose) {
                 console.debug("--> response:", response);
             }
-            const result = await response.json();
-            if (verbose) {
-                console.log("request:", url, result);
-            }
             if (!response.ok) {
-                console.error("request failed:", { url, response, result });
-                throw new Error(`request failed: ${url} ${response}`);
+                throw new Error(`request returned ${response.status} (${response.statusText})`);
+            }
+            result = await response.json();
+            if (verbose) {
+                console.log("result:", result);
+            }
+            if (!result || result === undefined) {
+                throw new Error("response JSON decode failed");
             }
             return result;
         } catch (e) {
-            console.error(e);
+            if (options && options.headers && options.headers["X-Api-Key"]) {
+                options.headers["X-Api-Key"] = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+            }
+            console.error(e, { url, accountId, path, id, options, response, result });
+            await messenger.servicesPrompt.alert(
+                "Mailfilter Control Panel",
+                `Network request failed.  Please contact technical support.\n\n` +
+                    `Request: ${options.method} ${url}\n` +
+                    `Failure: ${e}\n` +
+                    `Detail: ${JSON.stringify({ accountId, path, id, options }, null, 2)}\n`,
+            );
+            throw e;
         }
     }
 

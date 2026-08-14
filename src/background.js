@@ -2597,39 +2597,25 @@ async function onAfterSend(tab, sendInfo) {
             console.debug("sent to: ", addresses);
         }
         const filterctl = await getFilterDataController();
-        const booksResult = await filterctl.getBooks(accountId, false);
-        const foundAddressMap = new Map();
         for (const address of addresses) {
-            let found = false;
-            for (const [bookName, bookAddrs] of Object.entries(booksResult.books.Books)) {
+            const whitelisted = await filterctl.bookContainsAddress(accountId, "whitelist", address, { domain: true });
+            if (whitelisted) {
                 if (verbose) {
-                    console.debug("checking: ", bookName, bookAddrs);
+                    console.debug(`address ${address} is already whitelisted`);
                 }
-                if (found) {
-                    break;
-                }
-                for (const bookAddress of bookAddrs) {
-                    if (bookAddress === address) {
-                        foundAddressMap.set(address, true);
-                        found = true;
-                        break;
-                    }
-                }
-            }
-        }
-        const foundAddresses = Array.from(foundAddressMap.keys());
-        for (const address of addresses) {
-            const addressFound = foundAddresses.includes(address);
-            if (!addressFound) {
+            } else {
                 if (verbose) {
-                    console.debug("new sent address: ", address);
+                    console.debug(`address ${address} is not whitelisted`);
                 }
                 const prompt = `Add "${address}" to whitelist?`;
                 if (await messenger.servicesPrompt.confirm("New mail recipient", prompt)) {
+                    if (verbose) {
+                        console.debug(`user accepted, adding ${address} whitelist`);
+                    }
                     await filterctl.addAddressToFilterBook(accountId, address, "whitelist");
                 } else {
                     if (verbose) {
-                        console.debug("user declined add to whitelist");
+                        console.debug(`user declined, not adding ${address} to whitelist`);
                     }
                 }
             }

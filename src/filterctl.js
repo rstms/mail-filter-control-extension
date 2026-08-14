@@ -549,13 +549,14 @@ export class Books extends FilterData {
 
     addresses(bookName) {
         try {
+            bookName = bookName.toLowerCase();
             let addresses = this.books.get(bookName);
             if (addresses === undefined) {
                 throw new Error("unknown book name");
             }
             let result = [];
             for (const address of addresses) {
-                result.push(address);
+                result.push(address.toLowerCase());
             }
             result.sort();
             return result;
@@ -1645,6 +1646,8 @@ export class FilterDataController {
 
     async addAddressToFilterBook(accountId, address, bookName) {
         try {
+            address = address.toLowerCase();
+            bookName = bookName.toLowerCase();
             await getAccount(accountId);
             let command = "mkaddr " + bookName + " " + address;
             let response = await this.email.sendRequest(accountId, command, {});
@@ -1660,6 +1663,7 @@ export class FilterDataController {
 
     async removeAddressFromFilterBooks(accountId, address) {
         try {
+            address = address.toLowerCase();
             await getAccount(accountId);
             let command = "rmaddr " + address;
             let response = await this.email.sendRequest(accountId, command, {});
@@ -1668,6 +1672,40 @@ export class FilterDataController {
                 console.debug("get: filterctl response:", response);
             }
             return response;
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    // return list of book names containing address or (optionally) all@domain of address
+    async booksContainingAddress(accountId, address, options = {}) {
+        try {
+            address = address.toLowerCase();
+            const domainAddress = "all@" + address.replace(/^.*@/, "");
+            let books = await this.getBooks(accountId, true);
+            let bookMap = new Map();
+            for (const [name, addresses] of Object.entries(books.books.Books)) {
+                if (addresses.includes(address)) {
+                    bookMap.set(name, true);
+                }
+                if (options.domain && addresses.includes(domainAddress)) {
+                    bookMap.set(name, true);
+                }
+            }
+            return Array.from(bookMap.keys());
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    async bookContainsAddress(accountId, bookName, address, options = {}) {
+        try {
+            const bookNames = await this.booksContainingAddress(accountId, address, options);
+            if (bookNames.includes(bookName)) {
+                return true;
+            } else {
+                return false;
+            }
         } catch (e) {
             console.error(e);
         }
