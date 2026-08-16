@@ -260,7 +260,8 @@ class ConfigLocal extends ConfigBase {
             "filterctlState",
 
             // internal state
-            "addSenderTarget",
+            "defaultFilterBook",
+            "filterBookAddressMode",
             "selectedAccount",
 
             // internal config
@@ -287,8 +288,10 @@ class ConfigSession extends ConfigBase {
             "initialized",
             "menuConfig",
             "menuInitPending",
-            "messageDisplayActionAccountId",
+            "messageDisplayAction",
+            "displayedFolder",
             "menuItemVisibility",
+            "menuFilterBookDomain",
 
             // rescan status
             "activeRescans",

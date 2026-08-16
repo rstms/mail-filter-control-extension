@@ -932,7 +932,7 @@ export class BooksTab {
         }
     }
 
-    async handleAddSenderTargetChanged(message) {
+    async handleDefaultFilterBookChanged(message) {
         try {
             if (!this.initialized) {
                 await this.initialize();
@@ -940,7 +940,7 @@ export class BooksTab {
             if (message.accountId === this.account.id) {
                 await this.populateAddSenderTarget(message.bookName);
             }
-            return "addSenderTargetChangedResponse";
+            return "defaultFilterBookChangedResponse";
         } catch (e) {
             console.error(e);
         }

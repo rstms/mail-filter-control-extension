@@ -1,4 +1,4 @@
-/* global console */
+/* global console, messenger */
 
 export const TICKS_PER_SECOND = 1000;
 
@@ -148,11 +148,11 @@ export function deepCopy(obj) {
 
 export function isValidEmailAddress(address) {
     try {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (typeof address !== "string") {
             return false;
         }
-        return emailRegex.test(address);
+        const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        return emailPattern.test(address);
     } catch (e) {
         console.error(e);
     }
@@ -196,4 +196,45 @@ export function validateAccount(account) {
 
 export function timestamp() {
     return new Date().toISOString();
+}
+
+export function extractEmailAddress(inputText) {
+    if (typeof inputText !== "string") {
+        throw new Error(`unexpected type: ${typeof inputText}`);
+    }
+    let address = inputText;
+    if (inputText.indexOf("<") !== -1) {
+        const match = inputText.match(/<([^>]+)>/);
+        if (match || match.Length === 1) {
+            address = match[1];
+        } else {
+            throw new Error(`email address parse failed: ${inputText}`);
+        }
+    }
+    if (!isValidEmailAddress(address)) {
+        throw new Error(`malformed email address: ${inputText}`);
+    }
+    return address;
+}
+
+export function filterBookAddress(inputText, flags = null) {
+    let address = extractEmailAddress(inputText);
+    if (flags && flags.domain) {
+        return "filterbooks.domain@" + domainPart(address);
+    }
+    return address;
+}
+
+export function isEmailDomainMatch(domainAddress, emailAddress) {
+    if (!isValidEmailAddress(domainAddress)) {
+        throw new Error(`malformed domain address: ${domainAddress}`);
+    }
+    if (!isValidEmailAddress(emailAddress)) {
+        throw new Error(`malformed email address: ${emailAddress}`);
+    }
+    return domainPart(domainAddress) === domainPart(emailAddress);
+}
+
+export async function popupAlert(title, text) {
+    return await messenger.servicesPrompt.alert(title, text);
 }

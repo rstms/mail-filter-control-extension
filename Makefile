@@ -86,7 +86,10 @@ clean:
 	docker rmi prettier || true
 	rm -rf src/node_modules
 	rm -f release.zip
+	docker rmi tsc || true
 
 distclean: clean
 	rm -f dist/*.xpi
 
+report:
+	./handler_report

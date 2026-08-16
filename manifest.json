@@ -56,47 +56,101 @@
     "tabs"
   ],
   "commands": {
-    "mailfilter-add-sender-default": {
+    "mailfilter-add-sender-address-whitelist": {
+      "suggested_key": {
+        "default": "Ctrl+W"
+      },
+      "description": "Add message sender address to whitelist"
+    },
+    "mailfilter-add-sender-domain-whitelist": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+W"
+      },
+      "description": "Add message sender domain to whitelist"
+    },
+    "mailfilter-add-sender-address-default": {
       "suggested_key": {
         "default": "Ctrl+B"
       },
-      "description": "Add message sender to selected filter book"
+      "description": "Add message sender address to default filter book"
     },
-    "mailfilter-add-sender-1": {
+    "mailfilter-add-sender-domain-default": {
       "suggested_key": {
-        "default": "Ctrl+Shift+1"
+        "default": "Ctrl+Shift+B"
       },
-      "description": "Add message sender to filter book 1"
+      "description": "Add message sender domain to default filter book"
     },
-    "mailfilter-add-sender-2": {
+    "mailfilter-add-sender-address-1": {
       "suggested_key": {
-        "default": "Ctrl+Shift+2"
+        "default": "Alt+1"
       },
-      "description": "Add message sender to filter book 2"
+      "description": "Add message sender address to filter book 1"
     },
-    "mailfilter-add-sender-3": {
+    "mailfilter-add-sender-address-2": {
       "suggested_key": {
-        "default": "Ctrl+Shift+3"
+        "default": "Alt+2"
       },
-      "description": "Add message sender to filter book 3"
+      "description": "Add message sender address to filter book 2"
     },
-    "mailfilter-add-sender-4": {
+    "mailfilter-add-sender-address-3": {
       "suggested_key": {
-        "default": "Ctrl+Shift+4"
+        "default": "Alt+3"
       },
-      "description": "Add message sender to filter book 4"
+      "description": "Add message sender address to filter book 3"
     },
-    "mailfilter-add-sender-5": {
+    "mailfilter-add-sender-address-4": {
       "suggested_key": {
-        "default": "Ctrl+Shift+5"
+        "default": "Alt+4"
       },
-      "description": "Add message sender to filter book 5"
+      "description": "Add message sender address to filter book 4"
     },
-    "mailfilter-add-sender-6": {
+    "mailfilter-add-sender-address-5": {
       "suggested_key": {
-        "default": "Ctrl+Shift+6"
+        "default": "Alt+5"
       },
-      "description": "Add message sender to filter book 6"
+      "description": "Add message sender address to filter book 5"
+    },
+    "mailfilter-add-sender-address-6": {
+      "suggested_key": {
+        "default": "Alt+6"
+      },
+      "description": "Add message sender address to filter book 6"
+    },
+    "mailfilter-add-sender-domain-1": {
+      "suggested_key": {
+        "default": "Alt+Shift+1"
+      },
+      "description": "Add message sender domain to filter book 1"
+    },
+    "mailfilter-add-sender-domain-2": {
+      "suggested_key": {
+        "default": "Alt+Shift+2"
+      },
+      "description": "Add message sender domain to filter book 2"
+    },
+    "mailfilter-add-sender-domain-3": {
+      "suggested_key": {
+        "default": "Alt+Shift+3"
+      },
+      "description": "Add message sender domain to filter book 3"
+    },
+    "mailfilter-add-sender-domain-4": {
+      "suggested_key": {
+        "default": "Alt+Shift+4"
+      },
+      "description": "Add message sender domain to filter book 4"
+    },
+    "mailfilter-add-sender-domain-5": {
+      "suggested_key": {
+        "default": "Alt+Shift+5"
+      },
+      "description": "Add message sender domain to filter book 5"
+    },
+    "mailfilter-add-sender-domain-6": {
+      "suggested_key": {
+        "default": "Alt+Shift+6"
+      },
+      "description": "Add message sender domain to filter book 6"
     }
   },
   "experiment_apis": {
