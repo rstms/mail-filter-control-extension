@@ -68,16 +68,20 @@ fmt:	.fmt
 
 release_file = $(project)-$(version).xpi
 
-release: all
-	@$(gitclean) || { [ -n "$(dirty)" ] && echo "allowing dirty release"; }
+dist: dist/$(release_file)
+	
+dist/$(release_file): all
 	rm -f release.zip
 	zip release.zip -r $(package_files)
 	mv release.zip dist/$(release_file)
+	find dist -type f -name "*-$(version).xpi" | xargs -IXPI scp XPI beaker:Downloads
+
+release: dist
+	@$(gitclean) || { [ -n "$(dirty)" ] && echo "allowing dirty release"; }
 	@$(if $(update),gh release delete -y v$(version),)
 	gh release create v$(version) --notes "v$(version)"
 	gh release upload v$(version) updates.json
 	( cd dist && gh release upload v$(version) $(release_file) )
-	find dist -type f -name "*-$(version).xpi" | xargs -IXPI scp XPI beaker:Downloads
 
 clean:
 	rm -f .eslint

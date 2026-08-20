@@ -290,8 +290,8 @@ class ConfigSession extends ConfigBase {
             "menuInitPending",
             "messageDisplayAction",
             "displayedFolder",
-            "menuItemVisibility",
             "menuFilterBookDomain",
+            "selectedMessages",
 
             // rescan status
             "activeRescans",

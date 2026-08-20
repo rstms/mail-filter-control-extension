@@ -29,7 +29,7 @@
     ]
   },
   "message_display_action": {
-    "default_title": "Add Sender to Filter Book",
+    "default_title": "Mail Filter",
     "default_icon": "funnel.svg",
     "type": "button"
   },

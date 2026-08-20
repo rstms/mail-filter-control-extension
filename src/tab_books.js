@@ -396,7 +396,7 @@ export class BooksTab {
     async populateAddSenderTarget(bookName = undefined) {
         try {
             if (bookName === undefined) {
-                let response = await this.sendMessage({ id: "getAddSenderTarget", accountId: this.account.id });
+                let response = await this.sendMessage({ id: "getDefaultBook", accountId: this.account.id });
                 bookName = response.result;
             }
             if (typeof bookName === "string" && bookName !== "") {
@@ -932,7 +932,7 @@ export class BooksTab {
         }
     }
 
-    async handleDefaultFilterBookChanged(message) {
+    async handleDefaultBookChanged(message) {
         try {
             if (!this.initialized) {
                 await this.initialize();
@@ -940,7 +940,7 @@ export class BooksTab {
             if (message.accountId === this.account.id) {
                 await this.populateAddSenderTarget(message.bookName);
             }
-            return "defaultFilterBookChangedResponse";
+            return "defaultBookChangedResponse";
         } catch (e) {
             console.error(e);
         }
@@ -955,7 +955,7 @@ export class BooksTab {
             const bookName = sender.target.textContent;
             await this.populateAddSenderTarget(bookName);
             await this.sendMessage({
-                id: "setAddSenderTarget",
+                id: "setDefaultBook",
                 accountId: this.account.id,
                 bookName: bookName,
             });

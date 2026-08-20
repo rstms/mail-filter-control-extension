@@ -1,4 +1,4 @@
-///////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////
 //
 //  menu configuration
 //
@@ -11,6 +11,7 @@ export const menuConfig = {
             contexts: ["tools_menu", "action", "folder_pane"],
         },
         onClicked: "onMenuControlPanelClicked",
+        alwaysVisible: true,
     },
 
     rmfOpenRescans: {
@@ -25,11 +26,10 @@ export const menuConfig = {
         properties: {
             title: "Add Sender Address to Filter Book",
             contexts: ["message_list", "message_display_action"],
-            checked: true,
         },
         onCreated: "onMenuAddBooksCreated",
         subId: "rmfBook",
-        excludeFolders: ["Sent", "Drafts"],
+        excludeFolders: ["^/Sent$", "^/Drafts$", "^/Archives/.*"],
         addressMode: "address",
         requireSelection: true,
     },
@@ -38,13 +38,20 @@ export const menuConfig = {
         properties: {
             title: "Add Sender Domain to Filter Book",
             contexts: ["message_list", "message_display_action"],
-            checked: true,
         },
         onCreated: "onMenuAddBooksCreated",
         subId: "rmfBook",
-        excludeFolders: ["Sent", "Drafts"],
+        excludeFolders: ["^/Sent$", "^/Drafts$", "^/Archives/.*"],
         addressMode: "domain",
         requireSelection: true,
+    },
+
+    rmfFilterBookSeparator: {
+        properties: {
+            type: "separator",
+            contexts: ["message_list", "message_display_action"],
+        },
+        excludeFolders: ["^/Sent$", "^/Drafts$", "^/Archives/.*"],
     },
 
     rmfRemoveSenderAddress: {
@@ -53,7 +60,18 @@ export const menuConfig = {
             contexts: ["message_list", "message_display_action"],
         },
         onClicked: "onMenuRemoveSenderClicked",
-        excludeFolders: ["Sent", "Drafts"],
+        includeFolders: ["^/FilterBooks/[a-zA-Z_-]+$"],
+        addressMode: "address",
+        requireSelection: true,
+    },
+
+    rmfRemoveSenderAddressWhitelist: {
+        properties: {
+            title: "Remove Sender Address from Whitelist",
+            contexts: ["message_list", "message_display_action"],
+        },
+        onClicked: "onMenuRemoveSenderClicked",
+        includeFolders: ["^/INBOX/Whitelisted$"],
         addressMode: "address",
         requireSelection: true,
     },
@@ -64,7 +82,18 @@ export const menuConfig = {
             contexts: ["message_list", "message_display_action"],
         },
         onClicked: "onMenuRemoveSenderClicked",
-        excludeFolders: ["Sent", "Drafts"],
+        includeFolders: ["^/FilterBooks/[a-zA-Z_-]+$"],
+        addressMode: "domain",
+        requireSelection: true,
+    },
+
+    rmfRemoveSenderDomainWhitelist: {
+        properties: {
+            title: "Remove Sender Domain from Whitelist",
+            contexts: ["message_list", "message_display_action"],
+        },
+        onClicked: "onMenuRemoveSenderClicked",
+        includeFolders: ["^/INBOX/Whitelisted$"],
         addressMode: "domain",
         requireSelection: true,
     },
@@ -75,7 +104,7 @@ export const menuConfig = {
             contexts: ["message_list", "message_display_action"],
         },
         onClicked: "onMenuAddRecipientClicked",
-        includeFolders: ["Sent"],
+        includeFolders: ["^/Sent$"],
         addressMode: "address",
         requireSelection: true,
     },
@@ -86,7 +115,7 @@ export const menuConfig = {
             contexts: ["message_list", "message_display_action"],
         },
         onClicked: "onMenuAddRecipientClicked",
-        includeFolders: ["Sent"],
+        includeFolders: ["^/Sent$"],
         addressMode: "domain",
         requireSelection: true,
     },
@@ -97,7 +126,7 @@ export const menuConfig = {
             contexts: ["message_list", "message_display_action"],
         },
         onClicked: "onMenuRemoveRecipientClicked",
-        includeFolders: ["Sent"],
+        includeFolders: ["^/INBOX/Whitelisted$"],
         addressMode: "address",
         requireSelection: true,
     },
@@ -108,59 +137,53 @@ export const menuConfig = {
             contexts: ["message_list", "message_display_action"],
         },
         onClicked: "onMenuRemoveRecipientClicked",
-        includeFolders: ["Sent"],
-        addressMode: "address",
+        includeFolders: ["^/INBOX/Whitelisted$"],
+        addressMode: "domain",
         requireSelection: true,
     },
 
-    rmfFilterBookSeparator: {
-        properties: {
-            type: "separator",
-            contexts: ["message_list", "message_display_action"],
-        },
-        excludeFolders: ["Sent", "Drafts"],
-    },
-
-    rmfSetDefaultFilterBook: {
+    rmfSetDefaultBook: {
         properties: {
             title: "Set Default Filter Book",
-            contexts: ["message_list", "message_display_action"],
+            contexts: ["message_display_action"],
         },
         onCreated: "onMenuAddBooksCreated",
-        subId: "rmfTargetBook",
-        excludeFolders: ["Sent", "Drafts"],
+        subId: "rmfDefaultBook",
+        excludeFolders: ["^/Sent$", "^/Drafts$", "^/Archives/.*"],
     },
 
-    rmfSetFilterBookMode: {
+    rmfSetAddressMode: {
         properties: {
-            title: "Set Filter Book Address Mode",
-            contexts: ["message_list", "message_display_action"],
+            title: "Set Default Filter Book Address Mode",
+            contexts: ["message_display_action"],
         },
-        excludeFolders: ["Sent", "Drafts"],
+        excludeFolders: ["^/Sent$", "^/Drafts$", "^/Archives/.*"],
     },
 
-    rmfFilterBookAddressModeAddress: {
+    rmfSetAddressModeAddress: {
         properties: {
-            title: "Match By Address",
-            contexts: ["message_list", "message_display_action"],
-            parentId: "rmfSetFilterBookMode",
+            title: "Address",
+            contexts: ["message_display_action"],
+            parentId: "rmfSetAddressMode",
             type: "radio",
         },
-        onShown: "onMenuFilterBookAddressModeShown",
-        onClicked: "onMenuFilterBookAddressModeClicked",
-        excludeFolders: ["Sent", "Drafts"],
+        onShown: "onMenuAddressModeShown",
+        onClicked: "onMenuAddressModeClicked",
+        excludeFolders: ["^/Sent$", "^/Drafts$", "^/Archives/.*"],
+        addressMode: "address",
     },
 
-    rmfFilterBookAddressModeDomain: {
+    rmfSetAddressModeDomain: {
         properties: {
-            title: "Match By Domain",
-            contexts: ["message_list", "message_display_action"],
-            parentId: "rmfSetFilterBookMode",
+            title: "Domain",
+            contexts: ["message_display_action"],
+            parentId: "rmfSetAddressMode",
             type: "radio",
         },
-        onShown: "onMenuFilterBookAddressModeShown",
-        onClicked: "onMenuFilterBookAddressModeClicked",
-        excludeFolders: ["Sent", "Drafts"],
+        onShown: "onMenuAddressModeShown",
+        onClicked: "onMenuAddressModeClicked",
+        excludeFolders: ["^/Sent$", "^/Drafts$", "^/Archives/.*"],
+        addressMode: "domain",
     },
 
     rmfRescanSeparator: {
@@ -168,7 +191,7 @@ export const menuConfig = {
             type: "separator",
             contexts: ["folder_pane", "message_list"],
         },
-        excludeFolders: ["Sent", "Drafts"],
+        excludeFolders: ["^/Sent$", "^/Drafts$", "^/Archives/.*"],
     },
 
     rmfRescanFolder: {
@@ -177,7 +200,7 @@ export const menuConfig = {
             contexts: ["folder_pane"],
         },
         onClicked: "onMenuRescanFolderClicked",
-        excludeFolders: ["Sent", "Drafts"],
+        excludeFolders: ["^/Sent$", "^/Drafts$", "^/Archives/.*"],
     },
 
     rmfRescanMessages: {
@@ -186,7 +209,7 @@ export const menuConfig = {
             contexts: ["message_list"],
         },
         onClicked: "onMenuRescanMessagesClicked",
-        excludeFolders: ["Sent", "Drafts"],
+        excludeFolders: ["^/Sent$", "^/Drafts$", "^/Archives/.*"],
         requireSelection: true,
     },
 
@@ -196,7 +219,7 @@ export const menuConfig = {
             contexts: ["folder_pane"],
         },
         onClicked: "onMenuRescanFilterBooksFolderClicked",
-        excludeFolders: ["Sent", "Drafts"],
+        excludeFolders: ["^/Sent$", "^/Drafts$", "^/Archives/.*"],
     },
 
     rmfRescanFilterBooksMessages: {
@@ -205,7 +228,7 @@ export const menuConfig = {
             contexts: ["message_list"],
         },
         onClicked: "onMenuRescanFilterBooksMessagesClicked",
-        excludeFolders: ["Sent", "Drafts"],
+        excludeFolders: ["^/Sent$", "^/Drafts$", "^/Archives/.*"],
         requireSelection: true,
     },
 
@@ -223,31 +246,32 @@ export const menuConfig = {
             type: "checkbox",
         },
         onCreated: "onMenuSieveTraceCreated",
-        onClicked: "onMenuSieveTraceClicked",
         onShown: "onMenuSieveTraceShown",
+        onClicked: "onMenuSieveTraceClicked",
     },
 
-    rmfTargetBook: {
-        account: "__account__",
+    rmfDefaultBook: {
         properties: {
             title: "__book__",
             type: "radio",
-            parentId: "rmfSetDefaultFilterBook",
+            parentId: "rmfSetDefaultBook",
         },
+        titleTemplate: "__book__",
         noInit: true,
-        onClicked: "onMenuSetDefaultFilterBookClicked",
-        excludeFolders: ["Sent", "Drafts"],
+        onShown: "onMenuSetDefaultBookShown",
+        onClicked: "onMenuSetDefaultBookClicked",
     },
 
     rmfBook: {
-        account: "__account-id__",
         book: "__book__",
         properties: {
-            title: "Add __mode__ to '__book__'",
+            title: "Add sender __mode__ to '__book__'",
         },
+        titleTemplate: "Add sender __mode__ to '__book__'",
+        onShown: "onMenuAddSenderShown",
         onClicked: "onMenuAddSenderClicked",
         noInit: true,
-        excludeFolders: ["Sent", "Drafts"],
+        excludeFolders: ["^/Sent$", "^/Drafts$", "^/Archives/.*"],
         requireSelection: true,
     },
 };

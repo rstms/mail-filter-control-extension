@@ -238,3 +238,7 @@ export function isEmailDomainMatch(domainAddress, emailAddress) {
 export async function popupAlert(title, text) {
     return await messenger.servicesPrompt.alert(title, text);
 }
+
+export function isObject(value) {
+    return typeof value === "object" && value !== null;
+}

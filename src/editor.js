@@ -761,8 +761,8 @@ async function handleMessage(message, sender) {
                 populateAccounts();
                 return response;
 
-            case "defaultFilterBookChanged":
-                return await tab.books.handleDefaultFilterbookChanged(message);
+            case "defaultBookChanged":
+                return await tab.books.handleDefaultBookChanged(message);
         }
         throw new Error("editor received unexpected message:" + message.id);
     } catch (e) {
